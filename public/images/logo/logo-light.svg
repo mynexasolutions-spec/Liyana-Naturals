@@ -1,0 +1,51 @@
+<svg viewBox="0 0 280 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldGradLight" x1="10" y1="10" x2="70" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#DFBF7A" />
+      <stop offset="50%" stopColor="#C5A265" />
+      <stop offset="100%" stopColor="#A37E3E" />
+    </linearGradient>
+    <linearGradient id="leafGradLight" x1="20" y1="40" x2="60" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#A8B88A" />
+      <stop offset="100%" stopColor="#536B35" />
+    </linearGradient>
+  </defs>
+
+  <!-- Circular Ring Emblem -->
+  <g transform="translate(5, 5)">
+    <circle cx="35" cy="35" r="33" stroke="url(#goldGradLight)" stroke-width="2" />
+    <circle cx="35" cy="35" r="30" stroke="url(#goldGradLight)" stroke-width="0.7" stroke-dasharray="1.5 2" opacity="0.4" />
+    
+    <!-- Central Lotus Bud -->
+    <path d="M35 12 C38 19 42 27 35 44 C28 27 32 19 35 12 Z" fill="url(#goldGradLight)" opacity="0.9" />
+    <path d="M35 17 C36.5 22 38.5 29 35 39 C31.5 29 33.5 22 35 17 Z" fill="#FFFDF9" opacity="0.9" />
+    
+    <!-- Left Petal -->
+    <path d="M33.5 44 C24 37 16 29 20 20 C25 27 30 36 33.5 44 Z" fill="url(#goldGradLight)" opacity="0.85" />
+    <!-- Right Petal -->
+    <path d="M36.5 44 C46 37 54 29 50 20 C45 27 40 36 36.5 44 Z" fill="url(#goldGradLight)" opacity="0.85" />
+    
+    <!-- Central Stem -->
+    <path d="M35 42 L35 59" stroke="url(#goldGradLight)" stroke-width="1.6" stroke-linecap="round" />
+    
+    <!-- Upper Green Leaves -->
+    <path d="M34 48 C29 45 23 46 21 50 C25 52 30 51 34 49 Z" fill="url(#leafGradLight)" />
+    <path d="M36 48 C41 45 47 46 49 50 C45 52 40 51 36 49 Z" fill="url(#leafGradLight)" />
+    
+    <!-- Lower Green Leaves -->
+    <path d="M34 54 C30 52 25 53 24 56 C27 57 31 56 34 54.5 Z" fill="url(#leafGradLight)" />
+    <path d="M36 54 C40 52 45 53 46 56 C43 57 39 56 36 54.5 Z" fill="url(#leafGradLight)" />
+    
+    <circle cx="35" cy="61" r="1.25" fill="url(#goldGradLight)" />
+  </g>
+
+  <!-- Typography: Liyana (White for dark background) -->
+  <text x="86" y="47" font-family="'Cormorant Garamond', Georgia, serif" font-size="44" font-weight="500" fill="#FFFFFF" letter-spacing="-0.5">Liyana</text>
+  
+  <!-- Flourish on the tail of 'y' -->
+  <path d="M125 50 C118 56 104 59 90 58 C87 58 84 57 82 56 C84 58.5 88 59.5 92 59 C104 58.5 116 55 125 50 Z" fill="#FFFFFF" />
+  <circle cx="83" cy="56" r="1.5" fill="#C5A265" />
+
+  <!-- Typography: NATURALS (Gold for dark background) -->
+  <text x="88" y="66" font-family="'DM Sans', system-ui, sans-serif" font-size="13" font-weight="600" fill="#C5A265" letter-spacing="4">NATURALS</text>
+</svg>
