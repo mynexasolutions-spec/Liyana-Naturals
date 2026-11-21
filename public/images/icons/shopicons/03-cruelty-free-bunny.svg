@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">03 cruelty free bunny</title>
+  <g stroke="#315B3B" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M23 35C15 28 14 16 18 12C24 9 30 22 31 29"/>
+<path d="M34 28C32 17 35 8 41 9C48 12 44 25 41 31"/>
+<path d="M18 39C22 31 34 28 44 33C51 37 54 46 49 52C44 58 29 58 21 53C15 49 14 44 18 39Z"/>
+<path d="M48 40C56 39 59 44 56 49C54 52 51 52 48 51"/>
+<path d="M23 38L27 39M40 38L44 39M32 46L35 48L38 46"/>
+<path d="M20 55L17 59M43 56L46 59"/>
+  </g>
+</svg>

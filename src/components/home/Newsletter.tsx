@@ -3,8 +3,9 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Mail, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export function Newsletter() {
+export function Newsletter({ className }: { className?: string }) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
 
@@ -20,7 +21,10 @@ export function Newsletter() {
 
   return (
     <section
-      className="relative w-full bg-[#FAF6EE] py-12 overflow-hidden select-none lg:-mt-[50px]"
+      className={cn(
+        "relative w-full bg-[#FAF6EE] py-12 overflow-hidden select-none lg:-mt-[50px]",
+        className
+      )}
       aria-label="Newsletter Subscription"
     >
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 relative">
@@ -33,7 +37,7 @@ export function Newsletter() {
         {/* Left Leaf Decor */}
         <div
           aria-hidden="true"
-          className="absolute -left-4 sm:-left-20 top-1/2 -translate-y-1/2 w-28 sm:w-36 lg:w-48 xl:w-52 h-28 sm:h-36 lg:h-48 xl:h-52 pointer-events-none z-20"
+          className="absolute -left-12 sm:-left-20 top-1/2 -translate-y-1/2 w-24 h-24 sm:w-36 sm:h-36 lg:w-48 lg:h-48 xl:w-52 xl:h-52 pointer-events-none z-20"
         >
           <Image
             src="/images/about/Glossy_Green.png"
@@ -47,7 +51,7 @@ export function Newsletter() {
         {/* Right Leaf Decor */}
         <div
           aria-hidden="true"
-          className="absolute -right-4 sm:-right-20 top-1/2 -translate-y-1/2 w-28 sm:w-36 lg:w-48 xl:w-52 h-28 sm:h-36 lg:h-48 xl:h-52 pointer-events-none z-20"
+          className="absolute -right-12 sm:-right-20 top-1/2 -translate-y-1/2 w-24 h-24 sm:w-36 sm:h-36 lg:w-48 lg:h-48 xl:w-52 xl:h-52 pointer-events-none z-20"
         >
           <Image
             src="/images/about/Glossy_Green.png"

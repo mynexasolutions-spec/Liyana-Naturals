@@ -196,7 +196,7 @@ export function AboutSection() {
         RIGHT BOTANICAL LEAF: PURA RIGHT EDGE ME WITH REDUCED HEIGHT
         ========================================================================
       */}
-      <div className="absolute right-0 bottom-2 sm:top-6 w-36 h-36 sm:w-48 sm:h-48 lg:w-56 sm:h-56 xl:w-64 xl:h-64 pointer-events-none opacity-95 z-30 translate-x-[22%] sm:translate-x-[25%] lg:translate-x-[28%]">
+      <div className="absolute right-0 bottom-2 sm:top-6 w-32 h-32 sm:w-48 sm:h-48 lg:w-56 lg:h-56 xl:w-64 xl:h-64 pointer-events-none opacity-95 z-30 translate-x-[40%] sm:translate-x-[25%] lg:translate-x-[28%]">
         <Image
           src="/images/about/Glossy_Green.png"
           alt="Botanical Leaves Bottom Right"

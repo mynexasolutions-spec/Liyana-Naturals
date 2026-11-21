@@ -36,7 +36,7 @@ export function AnnouncementBar() {
 
   return (
     <div className="bg-[#263D18] text-[#FBF7EE] text-[11px] sm:text-xs tracking-wide py-2 px-4 border-b border-[#FBF7EE]/10 select-none z-50 relative">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1300px] mx-auto">
         {/* Desktop View: All three items spaced across the header */}
         <div className="hidden md:flex items-center justify-between font-normal">
           {/* Left: Free Shipping */}

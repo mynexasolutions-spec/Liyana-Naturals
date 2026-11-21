@@ -52,6 +52,43 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: #536b35 #fbf7ee;
+}
+
+/* Modern Botanical Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fbf7ee;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #536b35 0%, #263d18 100%);
+  border-radius: 9999px;
+  border: 2px solid #fbf7ee;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #263d18;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #a8b88a;
+  border-radius: 9999px;
+  border: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #536b35;
 }
 
 body {
@@ -78,13 +115,17 @@ body {
 }
 
 /* Headings Typography */
-h1, h2, h3, h4, h5, h6,
-.font-heading,
-.font-serif {
-  font-family: var(--font-cormorant), Georgia, Cambria, "Times New Roman", Times, serif;
-  color: var(--color-dark-text);
-  /* font-weight: 600; */
-  letter-spacing: -0.01em;
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-cormorant), Georgia, Cambria, "Times New Roman", Times, serif;
+    color: var(--color-dark-text);
+    letter-spacing: -0.01em;
+  }
+  .font-heading,
+  .font-serif {
+    font-family: var(--font-cormorant), Georgia, Cambria, "Times New Roman", Times, serif;
+    letter-spacing: -0.01em;
+  }
 }
 
 /* Global Paragraph Typography: 16px on Desktop, Responsive on Mobile/Tablet */

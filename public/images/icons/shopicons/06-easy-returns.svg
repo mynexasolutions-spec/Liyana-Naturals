@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">06 easy returns</title>
+  <g stroke="#315B3B" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 24A22 22 0 0 1 53 18L58 23"/>
+<path d="M58 12V23H47"/>
+<path d="M49 42A22 22 0 0 1 11 48L6 43"/>
+<path d="M6 54V43H17"/>
+  </g>
+</svg>

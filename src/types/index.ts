@@ -1,5 +1,14 @@
 export * from "./product";
 
+export interface AuthUser {
+  id: string;
+  fullName: string;
+  email: string;
+  mobile?: string;
+  provider: "email" | "google";
+  createdAt: string;
+}
+
 export interface NavItem {
   label: string;
   href: string;
@@ -20,20 +29,35 @@ export interface Testimonial {
   productName?: string;
 }
 
+export interface BlogSectionContent {
+  id: string;
+  heading: string;
+  paragraphs: string[];
+  bullets?: string[];
+  highlightTip?: string;
+}
+
 export interface BlogPost {
   id: string;
   title: string;
   slug: string;
   excerpt: string;
+  subtitle?: string;
   content?: string;
   coverImage: string;
   category: string;
   readTime: string;
   publishedAt: string;
+  featured?: boolean;
+  tags?: string[];
+  keyTakeaways?: string[];
+  sections?: BlogSectionContent[];
+  relatedProductSlugs?: string[];
   author: {
     name: string;
     avatar?: string;
     role?: string;
+    bio?: string;
   };
 }
 

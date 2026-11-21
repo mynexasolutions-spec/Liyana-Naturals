@@ -1,10 +1,8 @@
-"use client";
-
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { blogPosts } from "@/data/blog";
+import { BlogCard } from "@/components/blog/BlogCard";
 
 export function BlogSection() {
   return (
@@ -39,12 +37,10 @@ export function BlogSection() {
         {/* 
           ======================================================================
           HEADER SECTION
-          Pagination dots + Ornate headline + Subtitle
+          Ornate headline + Subtitle
           ======================================================================
         */}
-        <div className="text-center mb-6">
-    
-
+        <div className="text-center mb-8 sm:mb-10">
           {/* Ornate Headline with Left & Right Finial Lines */}
           <div className="flex items-center justify-center gap-3 sm:gap-6 max-w-2xl mx-auto">
             {/* Left Ornate Line */}
@@ -79,58 +75,18 @@ export function BlogSection() {
 
         {/* 
           ======================================================================
-          BLOG CARDS (Full-width 3-Column Responsive Grid)
+          BLOG CARDS (Full-width 3-Column Responsive Grid using shared BlogCard)
           ======================================================================
         */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-7 lg:gap-8">
           {blogPosts.map((post) => (
-            <article
-              key={post.id}
-              className="bg-white rounded-[5px] p-4 sm:p-4.5 border border-[#28321F]/8 shadow-[0_4px_20px_rgba(40,50,31,0.05)] hover:shadow-[0_12px_32px_rgba(40,50,31,0.1)] hover:border-[#536B35]/25 transition-all duration-300 flex flex-col group cursor-pointer"
-            >
-              {/* Image Container with Floating Date Pill */}
-              <div className="relative w-full aspect-[16/8] rounded-[5px] overflow-hidden mb-4 bg-[#F2ECE0]">
-                <Image
-                  src={post.coverImage}
-                  alt={post.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                  unoptimized
-                />
-
-                {/* Date Pill Badge (Top Left of Image) */}
-                <div className="absolute top-2.5 left-2.5 z-10 bg-white/95 backdrop-blur-xs text-[#28321F] text-xs font-semibold px-3 py-1 rounded-full shadow-xs flex items-center gap-1.5 border border-white/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#536B35]" />
-                  <span>{post.publishedAt}</span>
-                </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="px-1 flex-1 flex flex-col justify-between">
-                {/* Blog Title */}
-                <h3 className="font-sans font-bold text-[16.5px] sm:text-[17px] text-[#28321F] group-hover:text-[#536B35] transition-colors line-clamp-2 leading-snug">
-                  <Link href={`/blog#${post.slug}`}>{post.title}</Link>
-                </h3>
-
-                {/* Read More Link */}
-                <div className="mt-3.5 pt-1">
-                  <Link
-                    href={`/blog#${post.slug}`}
-                    className="inline-flex items-center gap-1.5 text-[16px] font-semibold text-[#536B35] group-hover:text-[#263D18] group-hover:translate-x-1 transition-all"
-                  >
-                    <span>Read More</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                </div>
-              </div>
-            </article>
+            <BlogCard key={post.id} post={post} variant="compact" />
           ))}
         </div>
 
         {/* 
           ======================================================================
-          VIEW ALL BLOGS BUTTON (Dedicated Bottom Action Row / Section)
+          VIEW ALL BLOGS BUTTON
           ======================================================================
         */}
         <div className="mt-10 sm:mt-12 flex justify-center">

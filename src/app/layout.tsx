@@ -4,6 +4,8 @@ import { siteConfig } from "@/config/site";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { PageTransitionShell } from "@/components/layout/PageTransitionShell";
+import { StoreProvider } from "@/context/StoreContext";
 
 export const metadata: Metadata = {
   title: {
@@ -78,12 +80,14 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-[#FBF7EE] text-[#28321F] font-sans antialiased selection:bg-[#A8B88A] selection:text-[#1D3214] flex flex-col justify-between">
-        <div>
-          <AnnouncementBar />
-          <Header />
-          {children}
-        </div>
-        <Footer />
+        <StoreProvider>
+          <div className="flex flex-col flex-1">
+            <AnnouncementBar />
+            <Header />
+            <PageTransitionShell>{children}</PageTransitionShell>
+          </div>
+          <Footer />
+        </StoreProvider>
       </body>
     </html>
   );

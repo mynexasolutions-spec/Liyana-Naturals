@@ -105,7 +105,7 @@ export function Testimonials() {
             return (
               <div
                 key={`${item.id}-${index}`}
-                className="w-[310px] sm:w-[340px] lg:w-[360px] shrink-0 bg-white/95 rounded-[20px] p-6 sm:p-6.5 border border-[#28321F]/8 shadow-[0_4px_24px_rgba(40,50,31,0.06)] hover:shadow-[0_12px_36px_rgba(40,50,31,0.12)] hover:border-[#536B35]/30 transition-all duration-300 flex flex-col justify-between cursor-default select-none group/card"
+                className="w-[310px] sm:w-[340px] lg:w-[360px] shrink-0 bg-white/95 rounded-[5px] p-6 sm:p-6.5 border border-[#28321F]/8 shadow-[0_4px_24px_rgba(40,50,31,0.06)] hover:shadow-[0_12px_36px_rgba(40,50,31,0.12)] hover:border-[#536B35]/30 transition-all duration-300 flex flex-col justify-between cursor-default select-none group/card"
               >
                 <div>
                   {/* Top Header: Avatar + User Details + Quote Icon */}
@@ -113,7 +113,7 @@ export function Testimonials() {
                     <div className="flex items-center gap-3 min-w-0">
                       {/* Person Icon in Soft Botanical Accent */}
                       <div
-                        className={`w-12 h-12 rounded-full overflow-hidden shrink-0 flex items-center justify-center border ${theme.bg} ${theme.text} ${theme.border} shadow-xs transition-transform duration-300 group-hover/card:scale-105`}
+                        className={`w-12 h-12 rounded-[5px] overflow-hidden shrink-0 flex items-center justify-center border ${theme.bg} ${theme.text} ${theme.border} shadow-xs transition-transform duration-300 group-hover/card:scale-105`}
                       >
                         <User className="w-6 h-6 stroke-[1.8]" />
                       </div>
@@ -157,12 +157,12 @@ export function Testimonials() {
                 {/* Card Bottom: Product Tag */}
                 {item.productName && (
                   <div className="mt-4 pt-3.5 border-t border-[#28321F]/6 flex items-center justify-between">
-                    <span className="text-[12px] text-[#777968] font-normal">
+                    <span className="text-[13px] text-[#777968] font-normal">
                       Purchased
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#536B35] bg-[#536B35]/10 px-2.5 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#536B35] bg-[#536B35]/10 px-2.5 py-0.5 rounded-[5px">
                       {item.productName}
-                    </span>
+                    </span> 
                   </div>
                 )}
               </div>

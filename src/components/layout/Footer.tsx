@@ -10,7 +10,7 @@ import { siteConfig } from "@/config/site";
 export function Footer() {
   return (
     <footer
-      className="relative w-full bg-[#1D3214] text-[#FBF7EE] pt-14 sm:pt-16 lg:pt-20 pb-8 sm:pb-10 overflow-hidden select-none"
+      className="relative w-full bg-[#1D3214] text-[#FBF7EE] pt-14 sm:pt-16 lg:pt-20 pb-24 lg:pb-10 overflow-hidden select-none"
       aria-label="Footer"
     >
       {/* 
@@ -171,7 +171,7 @@ export function Footer() {
             Unified Middle Div: Quick Links + Customer Care + Contact Us
             Grouped into ONE cohesive responsive unit
           */}
-          <div className="w-full lg:flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 sm:gap-6 lg:gap-8 xl:gap-12">
+          <div className="w-full lg:flex-1 grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-7 sm:gap-6 lg:gap-8 xl:gap-12">
             {/* Quick Links */}
             <div>
               <h4 className="font-sans font-bold text-[16px] sm:text-[17px] text-white tracking-tight mb-4">
@@ -271,7 +271,7 @@ export function Footer() {
             </div>
 
             {/* Contact Us */}
-            <div>
+            <div className="col-span-2 md:col-span-1">
               <h4 className="font-sans font-bold text-[16px] sm:text-[17px] text-white tracking-tight mb-4">
                 Contact Us
               </h4>

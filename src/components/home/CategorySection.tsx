@@ -101,7 +101,7 @@ export function CategorySection() {
       className="relative w-full bg-[#FAF5EC] py-12 sm:py-14 lg:py-16 overflow-hidden select-none"
       aria-label="Shop by Category"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1350px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="text-center mb-10 sm:mb-14 lg:mb-16">
           {/* Leaf Icon on Top */}
@@ -178,8 +178,8 @@ export function CategorySection() {
                 }}
                 className={`group block transition-all duration-300 ${
                   isLastOnMobile
-                    ? "col-span-2 sm:col-span-1 max-w-[240px] sm:max-w-none mx-auto w-full"
-                    : ""
+                    ? "col-span-2 sm:col-span-1 w-[calc(50%-0.5rem)] sm:w-full mx-auto"
+                    : "w-full"
                 }`}
               >
                 {/* Image Container with strictly rounded-[5px] and 1:1 square ratio matching new 1254x1254 images */}

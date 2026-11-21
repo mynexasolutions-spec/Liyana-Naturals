@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">05 free shipping truck</title>
+  <g stroke="#315B3B" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 17H39V47H7Z"/>
+<path d="M39 27H49L57 36V47H39Z"/>
+<circle cx="19" cy="49" r="6"/>
+<circle cx="47" cy="49" r="6"/>
+<path d="M44 31V38H54"/>
+  </g>
+</svg>
