@@ -1,10 +1,12 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { blogPosts } from "@/data/blog";
 import { BlogCard } from "@/components/blog/BlogCard";
+import type { BlogPost } from "@/types";
 
-export function BlogSection() {
+export function BlogSection({ posts }: { posts: BlogPost[] }) {
+  if (posts.length === 0) return null;
+
   return (
     <section
       className="relative w-full bg-[#FAF6EE] py-14 sm:py-16 lg:py-20 lg:mt-[-70px] overflow-hidden select-none"
@@ -79,7 +81,7 @@ export function BlogSection() {
           ======================================================================
         */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-7 lg:gap-8">
-          {blogPosts.map((post) => (
+          {posts.filter((post) => post.featured ?? true).slice(0, 3).map((post) => (
             <BlogCard key={post.id} post={post} variant="compact" />
           ))}
         </div>

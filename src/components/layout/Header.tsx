@@ -25,22 +25,37 @@ import {
   Leaf,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
-import { products } from "@/data/products";
 import { cn } from "@/lib/utils";
 import { siteConfig } from "@/config/site";
 import { useStore } from "@/context/StoreContext";
+import type { StorefrontSettings } from "@/lib/supabase/storefront";
+import type { ProductCategory } from "@/types";
 
 /* -------------------------------------------------------------------------- */
 /*                          Desktop Navigation + Mega Menu                    */
 /* -------------------------------------------------------------------------- */
 
-function DesktopNavigation() {
+function navigationForCategories(categories: ProductCategory[]) {
+  const categoryLinks = categories.map((category) => ({
+    label: category.name,
+    href: `/shop?category=${category.slug}`,
+  }));
+  return siteConfig.navigation.map((item) =>
+    item.label === "Shop" && categoryLinks.length > 0
+      ? { ...item, children: [{ label: "All Products", href: "/shop" }, ...categoryLinks] }
+      : item,
+  );
+}
+
+function DesktopNavigation({ categories = [] }: { categories?: ProductCategory[] }) {
   const pathname = usePathname();
   const [isShopOpen, setIsShopOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const featuredMegaProducts = products.slice(0, 3);
+  const { catalogProducts } = useStore();
+  const featuredMegaProducts = catalogProducts.slice(0, 3);
+  const navigation = navigationForCategories(categories);
 
   const handleMouseEnter = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -64,7 +79,7 @@ function DesktopNavigation() {
       className="hidden lg:flex items-center gap-1.5 xl:gap-2.5"
       aria-label="Main Navigation"
     >
-      {siteConfig.navigation.map((item) => {
+      {navigation.map((item) => {
         const isActive =
           item.href === "/"
             ? pathname === "/"
@@ -264,7 +279,7 @@ function DesktopNavigation() {
 /*                            Main Header Component                           */
 /* -------------------------------------------------------------------------- */
 
-export function Header() {
+export function Header({ settings, categories = [] }: { settings?: StorefrontSettings | null; categories?: ProductCategory[] }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -278,6 +293,7 @@ export function Header() {
   const desktopActionsRef = useRef<HTMLDivElement>(null);
 
   const {
+    catalogProducts,
     currentUser,
     cartItems,
     wishlistIds,
@@ -293,6 +309,10 @@ export function Header() {
     addToCart,
     removeFromWishlist,
   } = useStore();
+  const products = catalogProducts;
+  const navigation = navigationForCategories(categories);
+  const supportPhone = settings?.support_phone ?? siteConfig.contact.phone;
+  const supportEmail = settings?.support_email ?? siteConfig.contact.email;
 
   // Focus search input when popup opens
   useEffect(() => {
@@ -487,7 +507,7 @@ export function Header() {
 
             {/* Desktop Navigation Links & Mega Menu in Center */}
             <div className="hidden lg:flex items-center justify-center flex-1">
-              <DesktopNavigation />
+              <DesktopNavigation categories={categories} />
             </div>
 
             {/* Mobile Right Actions: Cart + Hamburger Menu Icon */}
@@ -1134,7 +1154,7 @@ export function Header() {
 
         {/* Drawer Scrollable Links + Mobile Mega Menu */}
         <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-2">
-          {siteConfig.navigation.map((item) => {
+          {navigation.map((item) => {
             const isActive =
               item.href === "/"
                 ? pathname === "/"
@@ -1261,16 +1281,16 @@ export function Header() {
         {/* Drawer Footer */}
         <div className="p-4 border-t border-[#28321F]/10 bg-white/85 space-y-2.5">
           <a
-            href={`tel:${siteConfig.contact.phone.replace(/[^0-9+]/g, "")}`}
+            href={`tel:${supportPhone.replace(/[^0-9+]/g, "")}`}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[5px] bg-[#263D18] text-[#FBF7EE] text-xs font-semibold hover:bg-[#1D3214] transition-colors shadow-sm"
           >
             <Phone className="w-4 h-4 text-[#A8B88A]" />
-            <span>Call {siteConfig.contact.phone}</span>
+            <span>Call {supportPhone}</span>
           </a>
           <div className="flex items-center justify-between text-[11px] text-[#777968] px-1">
             <span>Customer Care</span>
             <span className="font-medium text-[#263D18]">
-              {siteConfig.contact.email}
+            {supportEmail}
             </span>
           </div>
         </div>

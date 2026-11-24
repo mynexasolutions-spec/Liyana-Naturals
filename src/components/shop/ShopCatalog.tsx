@@ -21,7 +21,6 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { products } from "@/data/products";
 import { Product } from "@/types";
 import { Container } from "@/components/ui/Container";
 import { StoreProductCard } from "@/components/products/StoreProductCard";
@@ -116,32 +115,20 @@ interface ShopCatalogProps {
   initialCategory?: string;
   initialTag?: string;
   initialSearch?: string;
+  products?: Product[];
 }
 
-function mapInitialCategory(param?: string): string[] {
+function mapInitialCategory(param: string | undefined, products: Product[]): string[] {
   if (!param) return [];
   const normalized = param.toLowerCase();
-  const mapping: Record<string, string[]> = {
-    soaps: ["Soaps"],
-    cleansers: ["Soaps"],
-    "body-and-bath": ["Soaps"],
-    "hair-care": ["Hair Care"],
-    "hair-and-scalp": ["Hair Care", "Hair Masks"],
-    oils: ["Hair Care"],
-    "hair-masks": ["Hair Masks"],
-    "skin-care": ["Skin Care"],
-    creams: ["Skin Care"],
-    "facial-care": ["Skin Care", "Face Care"],
-    "face-care": ["Face Care"],
-    serums: ["Face Care", "Hair Care"],
-  };
-  return mapping[normalized] ?? [];
+  return [...new Set(products.filter((product) => product.categorySlug === normalized).map((product) => product.category))];
 }
 
 export function ShopCatalog({
   initialCategory,
   initialTag,
   initialSearch,
+  products = [],
 }: ShopCatalogProps) {
   const { addToCart, wishlistIds, totalWishlistCount, isHydrated } = useStore();
 
@@ -208,7 +195,7 @@ export function ShopCatalog({
 
   // Filter & View State
   const [selectedCategories, setSelectedCategories] = useState<string[]>(() =>
-    mapInitialCategory(initialCategory)
+    mapInitialCategory(initialCategory, products)
   );
   const [selectedSkinTypes, setSelectedSkinTypes] = useState<string[]>([]);
   const [selectedConcerns, setSelectedConcerns] = useState<string[]>([]);

@@ -30,10 +30,12 @@ import { Container } from "@/components/ui/Container";
 import { StoreProductCard } from "@/components/products/StoreProductCard";
 import { useStore } from "@/context/StoreContext";
 import { cn } from "@/lib/utils";
+import type { StorefrontReview } from "@/lib/supabase/storefront";
 
 interface ProductDetailClientProps {
   product: Product;
   relatedProducts: Product[];
+  initialReviews: StorefrontReview[];
 }
 
 interface ProductReview {
@@ -62,6 +64,7 @@ function getBadgeStyle(badge?: Product["badge"]) {
 export function ProductDetailClient({
   product,
   relatedProducts,
+  initialReviews,
 }: ProductDetailClientProps) {
   const { addToCart, getCartItemQty, isInWishlist, toggleWishlist } =
     useStore();
@@ -73,7 +76,19 @@ export function ProductDetailClient({
   const [openAccordion, setOpenAccordion] = useState<string>("details");
 
   // Short Modern Review Form State
-  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviews, setReviews] = useState<ProductReview[]>(() =>
+    initialReviews.map((review) => ({
+      id: review.id,
+      author: review.author,
+      rating: review.rating,
+      comment: review.body,
+      createdAt: new Date(review.createdAt).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+    })),
+  );
   const [reviewName, setReviewName] = useState<string>("");
   const [reviewRating, setReviewRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
@@ -90,13 +105,8 @@ export function ProductDetailClient({
       )
     : 0;
 
-  const displayReviewCount = product.reviewCount + reviews.length;
-  const displayRating =
-    displayReviewCount > 0
-      ? (product.rating * product.reviewCount +
-          reviews.reduce((sum, r) => sum + r.rating, 0)) /
-        displayReviewCount
-      : 0;
+  const displayReviewCount = product.reviewCount;
+  const displayRating = product.rating;
   const filledStars = Math.round(displayRating);
   const isHairProduct = product.category.toLowerCase().includes("hair");
 
@@ -149,19 +159,7 @@ export function ProductDetailClient({
     setOpenAccordion((prev) => (prev === key ? "" : key));
   };
 
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(`liyana_reviews_${product.id}`);
-      if (saved) {
-        const parsed = JSON.parse(saved) as ProductReview[];
-        if (Array.isArray(parsed)) setReviews(parsed);
-      }
-    } catch {
-      // Ignore storage read errors
-    }
-  }, [product.id]);
-
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = reviewName.trim();
     const trimmedComment = reviewComment.trim();
@@ -175,27 +173,25 @@ export function ProductDetailClient({
       return;
     }
 
-    const newReview: ProductReview = {
-      id: `rev-${Date.now()}`,
-      author: trimmedName,
-      rating: reviewRating,
-      comment: trimmedComment,
-      createdAt: new Date().toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-    };
-
-    const nextReviews = [newReview, ...reviews];
-    setReviews(nextReviews);
     try {
-      window.localStorage.setItem(
-        `liyana_reviews_${product.id}`,
-        JSON.stringify(nextReviews)
-      );
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product.id,
+          authorName: trimmedName,
+          rating: reviewRating,
+          body: trimmedComment,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setReviewError(result.error ?? "Unable to submit your review.");
+        return;
+      }
     } catch {
-      // Ignore storage write errors
+      setReviewError("Unable to submit your review right now.");
+      return;
     }
 
     setReviewName("");
@@ -839,7 +835,7 @@ export function ProductDetailClient({
                             {reviewSubmitted && !reviewError && (
                               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#3C6E26]">
                                 <Check className="w-3.5 h-3.5" />
-                                Review submitted!
+                                Review submitted for approval.
                               </span>
                             )}
                           </div>

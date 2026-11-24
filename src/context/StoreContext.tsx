@@ -8,16 +8,13 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { products } from "@/data/products";
-import { AuthUser } from "@/types";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import type { AuthUser, Product } from "@/types";
 
 export interface CartEntry {
   productId: string;
   quantity: number;
-}
-
-interface StoredAccount extends AuthUser {
-  password?: string;
 }
 
 export interface AuthActionResult {
@@ -32,6 +29,8 @@ interface AddToCartOptions {
 
 interface StoreContextValue {
   isHydrated: boolean;
+  passwordRecovery: boolean;
+  catalogProducts: Product[];
   currentUser: AuthUser | null;
   cartItems: CartEntry[];
   wishlistIds: string[];
@@ -58,129 +57,115 @@ interface StoreContextValue {
     email: string;
     password: string;
     rememberMe?: boolean;
-  }) => AuthActionResult;
+  }) => Promise<AuthActionResult>;
   registerUser: (input: {
     fullName: string;
     email: string;
     mobile: string;
     password: string;
-  }) => AuthActionResult;
+  }) => Promise<AuthActionResult>;
   loginWithGoogle: (input: {
     fullName: string;
     email: string;
-  }) => AuthActionResult;
+  }) => Promise<AuthActionResult>;
   resetUserPassword: (input: {
     email: string;
     newPassword: string;
-  }) => AuthActionResult;
-  logoutUser: () => void;
+  }) => Promise<AuthActionResult>;
+  updateUserPassword: (newPassword: string) => Promise<AuthActionResult>;
+  logoutUser: () => Promise<void>;
 }
 
 const CART_STORAGE_KEY = "liyana_naturals_cart_v1";
 const WISHLIST_STORAGE_KEY = "liyana_naturals_wishlist_v1";
-const USERS_STORAGE_KEY = "liyana_naturals_users_v1";
-const SESSION_STORAGE_KEY = "liyana_naturals_session_v1";
 
-function toPublicUser(account: StoredAccount): AuthUser {
+function toAuthUser(user: SupabaseUser): AuthUser {
   return {
-    id: account.id,
-    fullName: account.fullName,
-    email: account.email,
-    mobile: account.mobile,
-    provider: account.provider,
-    createdAt: account.createdAt,
+    id: user.id,
+    fullName:
+      typeof user.user_metadata?.full_name === "string"
+        ? user.user_metadata.full_name
+        : user.email?.split("@")[0] ?? "Liyana member",
+    email: user.email ?? "",
+    mobile:
+      typeof user.user_metadata?.phone === "string"
+        ? user.user_metadata.phone
+        : user.phone ?? undefined,
+    provider: user.app_metadata?.provider === "google" ? "google" : "email",
+    createdAt: user.created_at,
   };
-}
-
-function readStoredAccounts(): StoredAccount[] {
-  try {
-    const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as StoredAccount[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredAccounts(accounts: StoredAccount[]) {
-  try {
-    window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(accounts));
-  } catch {
-    // Ignore storage write errors
-  }
-}
-
-function persistSession(user: AuthUser, rememberMe = true) {
-  try {
-    const payload = JSON.stringify(user);
-    if (rememberMe) {
-      window.localStorage.setItem(SESSION_STORAGE_KEY, payload);
-      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    } else {
-      window.sessionStorage.setItem(SESSION_STORAGE_KEY, payload);
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    }
-  } catch {
-    // Ignore storage write errors
-  }
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
+export function StoreProvider({
+  children,
+  products = [],
+}: {
+  children: React.ReactNode;
+  products?: Product[];
+}) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [cartItems, setCartItems] = useState<CartEntry[]>([]);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   // Hydrate persisted state cleanly on client mount
   useEffect(() => {
-    try {
-      const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (savedCart) {
-        const parsed = JSON.parse(savedCart) as CartEntry[];
-        if (Array.isArray(parsed)) {
-          setCartItems(
-            parsed.filter(
-              (item) =>
-                item &&
-                typeof item.productId === "string" &&
-                typeof item.quantity === "number" &&
-                item.quantity > 0
-            )
-          );
-        }
-      }
+    let mounted = true;
 
-      const savedWishlist = window.localStorage.getItem(WISHLIST_STORAGE_KEY);
-      if (savedWishlist) {
-        const parsed = JSON.parse(savedWishlist) as string[];
-        if (Array.isArray(parsed)) {
-          setWishlistIds(parsed.filter((id) => typeof id === "string"));
+    async function hydrate() {
+      try {
+        const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+        if (savedCart) {
+          const parsed = JSON.parse(savedCart) as CartEntry[];
+          if (Array.isArray(parsed)) {
+            setCartItems(
+              parsed.filter(
+                (item) =>
+                  item &&
+                  typeof item.productId === "string" &&
+                  typeof item.quantity === "number" &&
+                  item.quantity > 0
+              )
+            );
+          }
         }
-      }
 
-      const savedSession =
-        window.localStorage.getItem(SESSION_STORAGE_KEY) ??
-        window.sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (savedSession) {
-        const parsedUser = JSON.parse(savedSession) as AuthUser;
-        if (
-          parsedUser &&
-          typeof parsedUser.id === "string" &&
-          typeof parsedUser.email === "string"
-        ) {
-          setCurrentUser(parsedUser);
+        const savedWishlist = window.localStorage.getItem(WISHLIST_STORAGE_KEY);
+        if (savedWishlist) {
+          const parsed = JSON.parse(savedWishlist) as string[];
+          if (Array.isArray(parsed)) {
+            setWishlistIds(parsed.filter((id) => typeof id === "string"));
+          }
         }
+
+        const { data, error } = await supabase.auth.getUser();
+        if (mounted && !error) setCurrentUser(data.user ? toAuthUser(data.user) : null);
+      } catch {
+        // Keep cart and wishlist usable when authentication is unavailable.
+      } finally {
+        if (mounted) setHydrated(true);
       }
-    } catch {
-      // Ignore storage read errors
-    } finally {
-      setHydrated(true);
     }
-  }, []);
+
+    void hydrate();
+    return () => {
+      mounted = false;
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUser(session?.user ? toAuthUser(session.user) : null);
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
+      if (event === "SIGNED_OUT") setPasswordRecovery(false);
+    });
+    return () => data.subscription.unsubscribe();
+  }, [supabase]);
 
   // Persist cart changes
   useEffect(() => {
@@ -276,151 +261,83 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const registerUser = useCallback(
-    (input: {
+    async (input: {
       fullName: string;
       email: string;
       mobile: string;
       password: string;
-    }): AuthActionResult => {
+    }): Promise<AuthActionResult> => {
       const normalizedEmail = input.email.trim().toLowerCase();
-      const accounts = readStoredAccounts();
-
-      if (accounts.some((acc) => acc.email.toLowerCase() === normalizedEmail)) {
-        return {
-          ok: false,
-          error: "An account with this email already exists. Please login instead.",
-        };
-      }
-
-      const newAccount: StoredAccount = {
-        id: `user-${Date.now()}`,
-        fullName: input.fullName.trim(),
+      const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
-        mobile: input.mobile.trim(),
         password: input.password,
-        provider: "email",
-        createdAt: new Date().toISOString(),
-      };
-
-      writeStoredAccounts([...accounts, newAccount]);
-      const publicUser = toPublicUser(newAccount);
-      setCurrentUser(publicUser);
-      persistSession(publicUser, true);
-
+        options: { data: { full_name: input.fullName.trim(), phone: input.mobile.trim() } },
+      });
+      if (error) return { ok: false, error: error.message };
+      const publicUser = data.user ? toAuthUser(data.user) : undefined;
+      if (publicUser) setCurrentUser(publicUser);
       return { ok: true, user: publicUser };
     },
-    []
+    [supabase]
   );
 
   const loginUser = useCallback(
-    (input: {
+    async (input: {
       email: string;
       password: string;
       rememberMe?: boolean;
-    }): AuthActionResult => {
+    }): Promise<AuthActionResult> => {
       const normalizedEmail = input.email.trim().toLowerCase();
-      const accounts = readStoredAccounts();
-      const matched = accounts.find(
-        (acc) => acc.email.toLowerCase() === normalizedEmail
-      );
-
-      if (!matched) {
-        return {
-          ok: false,
-          error: "No account found with this email. Please register first.",
-        };
-      }
-
-      if (matched.provider === "google" && !matched.password) {
-        return {
-          ok: false,
-          error:
-            "This email was registered via Google. Please continue with Google.",
-        };
-      }
-
-      if (matched.password !== input.password) {
-        return {
-          ok: false,
-          error: "Incorrect password. Please check and try again.",
-        };
-      }
-
-      const publicUser = toPublicUser(matched);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: input.password,
+      });
+      if (error) return { ok: false, error: error.message };
+      const publicUser = toAuthUser(data.user);
       setCurrentUser(publicUser);
-      persistSession(publicUser, input.rememberMe !== false);
-
       return { ok: true, user: publicUser };
     },
-    []
+    [supabase]
   );
 
   const loginWithGoogle = useCallback(
-    (input: { fullName: string; email: string }): AuthActionResult => {
-      const normalizedEmail = input.email.trim().toLowerCase();
-      const accounts = readStoredAccounts();
-      const existing = accounts.find(
-        (acc) => acc.email.toLowerCase() === normalizedEmail
-      );
-
-      let targetAccount: StoredAccount;
-      if (existing) {
-        targetAccount = existing;
-      } else {
-        targetAccount = {
-          id: `google-${Date.now()}`,
-          fullName: input.fullName.trim(),
-          email: normalizedEmail,
-          provider: "google",
-          createdAt: new Date().toISOString(),
-        };
-        writeStoredAccounts([...accounts, targetAccount]);
-      }
-
-      const publicUser = toPublicUser(targetAccount);
-      setCurrentUser(publicUser);
-      persistSession(publicUser, true);
-
-      return { ok: true, user: publicUser };
+    async (input: { fullName: string; email: string }): Promise<AuthActionResult> => {
+      void input;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/login` },
+      });
+      return error ? { ok: false, error: error.message } : { ok: true };
     },
-    []
+    [supabase]
   );
 
   const resetUserPassword = useCallback(
-    (input: { email: string; newPassword: string }): AuthActionResult => {
+    async (input: { email: string; newPassword: string }): Promise<AuthActionResult> => {
       const normalizedEmail = input.email.trim().toLowerCase();
-      const accounts = readStoredAccounts();
-      const index = accounts.findIndex(
-        (acc) => acc.email.toLowerCase() === normalizedEmail
-      );
-
-      if (index === -1) {
-        return {
-          ok: false,
-          error: "No account found with this email address.",
-        };
-      }
-
-      const updated = accounts.map((acc, idx) =>
-        idx === index
-          ? { ...acc, password: input.newPassword, provider: "email" as const }
-          : acc
-      );
-      writeStoredAccounts(updated);
-      return { ok: true };
+      void input.newPassword;
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      return error
+        ? { ok: false, error: error.message }
+        : { ok: true };
     },
-    []
+    [supabase]
   );
 
-  const logoutUser = useCallback(() => {
+  const updateUserPassword = useCallback(async (newPassword: string): Promise<AuthActionResult> => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { ok: false, error: error.message };
+    setPasswordRecovery(false);
+    return { ok: true };
+  }, [supabase]);
+
+  const logoutUser = useCallback(async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
-    try {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    } catch {
-      // Ignore storage errors
-    }
-  }, []);
+    setPasswordRecovery(false);
+  }, [supabase]);
 
   const totalCartCount = useMemo(
     () => cartItems.reduce((sum, item) => sum + item.quantity, 0),
@@ -441,6 +358,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<StoreContextValue>(
     () => ({
       isHydrated: hydrated,
+      passwordRecovery,
+      catalogProducts: products,
       currentUser,
       cartItems,
       wishlistIds,
@@ -463,10 +382,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       registerUser,
       loginWithGoogle,
       resetUserPassword,
+      updateUserPassword,
       logoutUser,
     }),
     [
       hydrated,
+      passwordRecovery,
+      products,
       currentUser,
       cartItems,
       wishlistIds,
@@ -489,6 +411,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       registerUser,
       loginWithGoogle,
       resetUserPassword,
+      updateUserPassword,
       logoutUser,
     ]
   );

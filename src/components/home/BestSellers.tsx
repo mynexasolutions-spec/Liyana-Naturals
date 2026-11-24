@@ -2,12 +2,12 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { products } from "@/data/products";
+import { Product } from "@/types";
 import { StoreProductCard } from "@/components/products/StoreProductCard";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-export function BestSellers() {
+export function BestSellers({ products = [] }: { products?: Product[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const leafRef = useRef<HTMLDivElement>(null);
   const leftLineRef = useRef<HTMLDivElement>(null);

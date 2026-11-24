@@ -7,16 +7,22 @@
     "build": "next build --webpack",
     "build:turbo": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "seed:supabase": "node --experimental-strip-types scripts/seed-supabase.mts",
+    "verify:supabase": "node --experimental-strip-types scripts/verify-supabase.mts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.119.2",
     "clsx": "^2.1.1",
     "gsap": "^3.15.1",
+    "imagekit": "^6.0.0",
     "lucide-react": "^1.75.0",
     "next": "16.4.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",

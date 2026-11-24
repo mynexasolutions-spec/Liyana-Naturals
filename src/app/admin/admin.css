@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --admin-sidebar: #1d3214;
+  --admin-forest: #263d18;
+  --admin-cream: #fbf7ee;
+  --admin-beige: #e9dcc5;
+  --admin-sage: #a8b88a;
+}

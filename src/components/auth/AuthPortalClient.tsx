@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -39,6 +39,8 @@ export function AuthPortalClient({
     loginUser,
     registerUser,
     resetUserPassword,
+    updateUserPassword,
+    passwordRecovery,
     logoutUser,
   } = useStore();
 
@@ -68,6 +70,7 @@ export function AuthPortalClient({
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");
 
@@ -77,7 +80,15 @@ export function AuthPortalClient({
     setFormSuccess("");
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (passwordRecovery) {
+      setIsForgotOpen(true);
+      setResetError("");
+      setResetMessage("Choose a new password for your account.");
+    }
+  }, [passwordRecovery]);
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
@@ -92,7 +103,7 @@ export function AuthPortalClient({
       return;
     }
 
-    const res = loginUser({
+    const res = await loginUser({
       email: emailTrimmed,
       password: loginPassword,
       rememberMe,
@@ -106,7 +117,7 @@ export function AuthPortalClient({
     setFormSuccess("Welcome back! You are now signed in.");
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
@@ -142,7 +153,7 @@ export function AuthPortalClient({
       return;
     }
 
-    const res = registerUser({
+    const res = await registerUser({
       fullName: fullName.trim(),
       email: registerEmail.trim(),
       mobile: mobile.trim(),
@@ -157,27 +168,43 @@ export function AuthPortalClient({
     setFormSuccess("Account created successfully! Welcome to Liyana Naturals.");
   };
 
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetError("");
     setResetMessage("");
 
-    if (
+    if (!passwordRecovery && (
       !resetEmail.trim() ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resetEmail.trim())
-    ) {
+    )) {
       setResetError("Please enter your registered email address.");
       return;
     }
-    if (resetNewPassword.length < 6) {
-      setResetError("New password must be at least 6 characters long.");
+    if (passwordRecovery) {
+      if (resetNewPassword.length < 6) {
+        setResetError("New password must be at least 6 characters long.");
+        return;
+      }
+      if (resetNewPassword !== resetConfirmPassword) {
+        setResetError("Passwords do not match.");
+        return;
+      }
+      const res = await updateUserPassword(resetNewPassword);
+      if (!res.ok) {
+        setResetError(res.error ?? "Could not update your password.");
+        return;
+      }
+      setResetMessage("Password updated. You can continue shopping.");
+      setResetNewPassword("");
+      setResetConfirmPassword("");
+      setTimeout(() => {
+        setIsForgotOpen(false);
+        setResetMessage("");
+      }, 1500);
       return;
     }
 
-    const res = resetUserPassword({
-      email: resetEmail.trim(),
-      newPassword: resetNewPassword,
-    });
+    const res = await resetUserPassword({ email: resetEmail.trim(), newPassword: "" });
 
     if (!res.ok) {
       setResetError(res.error ?? "Could not reset password.");
@@ -185,10 +212,9 @@ export function AuthPortalClient({
     }
 
     setLoginEmail(resetEmail.trim());
-    setResetMessage("Password updated! You can now login with your new password.");
+    setResetMessage("Check your email for a secure password reset link.");
     setTimeout(() => {
       setIsForgotOpen(false);
-      setResetNewPassword("");
       setResetMessage("");
     }, 1500);
   };
@@ -782,7 +808,9 @@ export function AuthPortalClient({
 
             <form onSubmit={handleForgotSubmit} className="space-y-3 pt-4">
               <p className="font-sans text-xs text-[#777968]">
-                Enter your registered email and set a new password.
+                {passwordRecovery
+                  ? "Choose a new password for your account."
+                  : "Enter your registered email and we will send a secure reset link."}
               </p>
 
               {resetError && (
@@ -796,33 +824,49 @@ export function AuthPortalClient({
                 </p>
               )}
 
-              <div className="relative">
-                <Mail className="w-4 h-4 text-[#536B35] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="Registered Email Address"
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
-                />
-              </div>
+              {!passwordRecovery && (
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-[#536B35] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="Registered Email Address"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
+                  />
+                </div>
+              )}
 
-              <div className="relative">
-                <Lock className="w-4 h-4 text-[#536B35] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="password"
-                  value={resetNewPassword}
-                  onChange={(e) => setResetNewPassword(e.target.value)}
-                  placeholder="New Password (min 6 characters)"
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
-                />
-              </div>
+              {passwordRecovery && (
+                <>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-[#536B35] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="password"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      placeholder="New Password (min 6 characters)"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-[#536B35] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="password"
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      placeholder="Confirm New Password"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
+                    />
+                  </div>
+                </>
+              )}
 
               <button
                 type="submit"
                 className="w-full py-2.5 px-4 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
               >
-                Update Password
+                {passwordRecovery ? "Update Password" : "Send Reset Link"}
               </button>
             </form>
           </div>

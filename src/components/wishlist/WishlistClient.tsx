@@ -3,26 +3,25 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, Heart, ShoppingBag, Trash2 } from "lucide-react";
-import { products } from "@/data/products";
 import { StoreProductCard } from "@/components/products/StoreProductCard";
 import { Container } from "@/components/ui/Container";
 import { useStore } from "@/context/StoreContext";
 
 export function WishlistClient() {
-  const { wishlistIds, addToCart, removeFromWishlist } = useStore();
+  const { wishlistIds, addToCart, removeFromWishlist, catalogProducts } = useStore();
   const [movedAll, setMovedAll] = useState(false);
 
   const wishlistedProducts = useMemo(
-    () => products.filter((p) => wishlistIds.includes(p.id)),
-    [wishlistIds]
+    () => catalogProducts.filter((p) => wishlistIds.includes(p.id)),
+    [catalogProducts, wishlistIds]
   );
 
   const recommendedProducts = useMemo(
     () =>
-      products
+      catalogProducts
         .filter((p) => !wishlistIds.includes(p.id))
         .slice(0, 3),
-    [wishlistIds]
+    [catalogProducts, wishlistIds]
   );
 
   const handleMoveAllToCart = () => {

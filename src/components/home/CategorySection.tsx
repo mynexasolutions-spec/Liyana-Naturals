@@ -4,11 +4,11 @@ import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import { categories } from "@/data/categories";
+import { ProductCategory } from "@/types";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-export function CategorySection() {
+export function CategorySection({ categories = [] }: { categories?: ProductCategory[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const leafRef = useRef<HTMLDivElement>(null);
   const leftLineRef = useRef<HTMLDivElement>(null);

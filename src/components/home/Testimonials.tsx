@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Star, User, CheckCircle2, Quote } from "lucide-react";
-import { testimonials } from "@/data/testimonials";
+import type { StorefrontReview } from "@/lib/supabase/storefront";
 
 const avatarColorThemes = [
   { bg: "bg-[#E6EED8]", text: "text-[#2D4518]", border: "border-[#A8B88A]/40" }, // Sage Green
@@ -13,7 +13,17 @@ const avatarColorThemes = [
   { bg: "bg-[#E2E8DC]", text: "text-[#34482B]", border: "border-[#A7BA98]/40" }, // Soft Olive
 ];
 
-export function Testimonials() {
+export function Testimonials({ reviews }: { reviews: StorefrontReview[] }) {
+  if (reviews.length === 0) return null;
+
+  const testimonials = reviews.map((review) => ({
+    id: review.id,
+    author: review.author,
+    quote: review.body,
+    rating: review.rating,
+    productName: review.productName ?? undefined,
+  }));
+
   // Duplicate testimonials array for seamless infinite right-to-left loop
   const marqueeItems = [...testimonials, ...testimonials];
 

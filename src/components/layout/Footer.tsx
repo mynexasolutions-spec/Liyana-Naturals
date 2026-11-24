@@ -6,8 +6,18 @@ import Image from "next/image";
 import { Phone, Mail, MapPin, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { siteConfig } from "@/config/site";
+import type { StorefrontSettings } from "@/lib/supabase/storefront";
 
-export function Footer() {
+export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
+  const globalSocial = settings?.global.social;
+  const social = globalSocial && typeof globalSocial === "object" ? globalSocial as Record<string, unknown> : {};
+  const facebook = typeof social.facebook === "string" ? social.facebook : siteConfig.social.facebook;
+  const instagram = typeof social.instagram === "string" ? social.instagram : siteConfig.social.instagram;
+  const pinterest = typeof social.pinterest === "string" ? social.pinterest : siteConfig.social.pinterest;
+  const phone = settings?.support_phone ?? siteConfig.contact.phone;
+  const email = settings?.support_email ?? siteConfig.contact.email;
+  const address = settings?.address ?? siteConfig.contact.address;
+
   return (
     <footer
       className="relative w-full bg-[#1D3214] text-[#FBF7EE] pt-14 sm:pt-16 lg:pt-20 pb-24 lg:pb-10 overflow-hidden select-none"
@@ -73,7 +83,7 @@ export function Footer() {
             <div className="flex items-center gap-3 pt-2">
               {/* Facebook */}
               <a
-                href={siteConfig.social.facebook}
+                href={facebook}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Follow us on Facebook"
@@ -90,7 +100,7 @@ export function Footer() {
 
               {/* Instagram */}
               <a
-                href={siteConfig.social.instagram}
+                href={instagram}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Follow us on Instagram"
@@ -150,7 +160,7 @@ export function Footer() {
 
               {/* Pinterest */}
               <a
-                href={siteConfig.social.pinterest}
+                href={pinterest}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Follow us on Pinterest"
@@ -278,25 +288,25 @@ export function Footer() {
               <ul className="space-y-3 font-sans text-[14px] text-[#E5EBD8]">
                 <li>
                   <a
-                    href={`tel:${siteConfig.contact.phone.replace(/\s+/g, "")}`}
+                    href={`tel:${phone.replace(/\s+/g, "")}`}
                     className="flex items-center gap-2.5 hover:text-white transition-colors duration-150 group"
                   >
                     <Phone className="w-4 h-4 text-[#A8B88A] shrink-0 group-hover:text-white transition-colors rotate-[-10deg]" />
-                    <span>{siteConfig.contact.phone}</span>
+                    <span>{phone}</span>
                   </a>
                 </li>
                 <li>
                   <a
-                    href={`mailto:${siteConfig.contact.email}`}
+                    href={`mailto:${email}`}
                     className="flex items-center gap-2.5 hover:text-white transition-colors duration-150 group"
                   >
                     <Mail className="w-4 h-4 text-[#A8B88A] shrink-0 group-hover:text-white transition-colors" />
-                    <span className="truncate">{siteConfig.contact.email}</span>
+                    <span className="truncate">{email}</span>
                   </a>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <MapPin className="w-4 h-4 text-[#A8B88A] shrink-0 mt-0.5" />
-                  <span>{siteConfig.contact.address}</span>
+                  <span>{address}</span>
                 </li>
               </ul>
             </div>

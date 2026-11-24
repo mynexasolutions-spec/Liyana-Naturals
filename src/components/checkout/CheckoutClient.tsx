@@ -32,7 +32,6 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
-import { products } from "@/data/products";
 import { siteConfig } from "@/config/site";
 import { useStore } from "@/context/StoreContext";
 import { cn } from "@/lib/utils";
@@ -110,6 +109,7 @@ export function CheckoutClient() {
     updateCartQuantity,
     removeFromCart,
     clearCart,
+    catalogProducts,
   } = useStore();
 
   // Shipping Address State
@@ -137,6 +137,7 @@ export function CheckoutClient() {
 
   // Validation & Completed Order State
   const [formError, setFormError] = useState("");
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [completedOrder, setCompletedOrder] =
     useState<CompletedOrderSnapshot | null>(null);
 
@@ -155,7 +156,7 @@ export function CheckoutClient() {
   const detailedCartItems = useMemo(() => {
     return cartItems
       .map((entry) => {
-        const product = products.find((p) => p.id === entry.productId);
+        const product = catalogProducts.find((p) => p.id === entry.productId);
         if (!product) return null;
         return {
           product,
@@ -167,7 +168,7 @@ export function CheckoutClient() {
         (
           item
         ): item is {
-          product: (typeof products)[number];
+          product: (typeof catalogProducts)[number];
           quantity: number;
           lineTotal: number;
         } => item !== null
@@ -224,7 +225,7 @@ export function CheckoutClient() {
     setCouponInput("");
   };
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
@@ -265,8 +266,25 @@ export function CheckoutClient() {
       return;
     }
 
-    const orderSnapshot: CompletedOrderSnapshot = {
-      orderId: `LN-${Date.now().toString().slice(-6)}`,
+    setIsPlacingOrder(true);
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: { fullName, email, phone },
+          address: { street: address, city, state: stateName, pinCode },
+          items: detailedCartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+          deliveryMethod,
+          paymentMethod,
+          couponCode: appliedCouponCode,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Unable to place your order.");
+
+      const orderSnapshot: CompletedOrderSnapshot = {
+      orderId: result.orderNumber,
       placedAt: new Date().toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
@@ -295,9 +313,14 @@ export function CheckoutClient() {
       total: grandTotal,
     };
 
-    setCompletedOrder(orderSnapshot);
-    clearCart();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+      setCompletedOrder(orderSnapshot);
+      clearCart();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (orderError) {
+      setFormError(orderError instanceof Error ? orderError.message : "Unable to place your order.");
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -1257,10 +1280,11 @@ export function CheckoutClient() {
               <div className="bg-white rounded-2xl border border-[#28321F]/10 shadow-card p-4 space-y-2.5 text-center">
                 <button
                   type="submit"
+                  disabled={isPlacingOrder}
                   className="w-full py-3.5 px-6 rounded-xl bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-sm sm:text-base font-semibold inline-flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Place Order</span>
+                  <span>{isPlacingOrder ? "Placing Order…" : "Place Order"}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <p className="font-sans text-[11px] text-[#777968] inline-flex items-center justify-center gap-1.5">

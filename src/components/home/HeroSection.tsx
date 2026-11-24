@@ -12,10 +12,12 @@ import {
   Heart,
 } from "lucide-react";
 import { Container } from "@/components/ui/Container";
+import type { StorefrontBanner } from "@/lib/supabase/storefront";
 
-const slides = [
+const fallbackSlides = [
   {
     id: 1,
+    backgroundImage: undefined,
     eyebrow: "NATURE'S CARE FOR YOU",
     titleLine1: "Glow Naturally,",
     titleLine2: "Live Beautifully",
@@ -30,6 +32,7 @@ const slides = [
   },
   {
     id: 2,
+    backgroundImage: undefined,
     eyebrow: "AYURVEDIC & BOTANICAL SCIENCE",
     titleLine1: "Cold-Pressed Purity,",
     titleLine2: "Timeless Radiance",
@@ -44,6 +47,7 @@ const slides = [
   },
   {
     id: 3,
+    backgroundImage: undefined,
     eyebrow: "CERTIFIED ORGANIC CARE",
     titleLine1: "Rooted in Nature,",
     titleLine2: "Proven by Science",
@@ -58,17 +62,30 @@ const slides = [
   },
 ];
 
-export function HeroSection() {
+export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) {
+  const slides = banners.length > 0
+    ? banners.map((banner, index) => ({
+        id: banner.id,
+        eyebrow: "LIYANA NATURALS",
+        titleLine1: banner.title,
+        titleLine2: "",
+        subtitle: banner.subtitle ?? "Pure botanical care for healthy skin and hair.",
+        primaryBtn: { label: "Shop Now", href: banner.link_url ?? "/shop" },
+        secondaryBtn: fallbackSlides[index % fallbackSlides.length].secondaryBtn,
+        badges: fallbackSlides[index % fallbackSlides.length].badges,
+        backgroundImage: banner.image_url,
+      }))
+    : fallbackSlides;
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
-  }, []);
+  }, [slides.length]);
 
   const prevSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  }, []);
+  }, [slides.length]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -92,7 +109,7 @@ export function HeroSection() {
         {/* Desktop Image (md: 768px and up) - unoptimized prevents lossy compression / pixelation */}
         <div className="hidden md:block absolute inset-0">
           <Image
-            src="/images/hero/Liyana_hero_dextop.png"
+            src={slide.backgroundImage ?? "/images/hero/Liyana_hero_dextop.png"}
             alt="Liyana Naturals Organic Cosmetics Collection"
             fill
             priority
@@ -105,7 +122,7 @@ export function HeroSection() {
         {/* Mobile Image (< 768px) - unoptimized guarantees direct raw image load without optimization failure */}
         <div className="block md:hidden absolute inset-0">
           <Image
-            src="/images/hero/Liyana_hero_mobile.png"
+            src={slide.backgroundImage ?? "/images/hero/Liyana_hero_mobile.png"}
             alt="Liyana Naturals Organic Cosmetics Collection"
             fill
             priority
@@ -140,7 +157,7 @@ export function HeroSection() {
           {/* Main Headline - Editorial Luxury Typography */}
           <h1 className="font-heading text-[35px] sm:text-[70px] text-[#263D18] font-[650] sm:leading-[1.02] leading-[1.12] tracking-tight my-[8px] sm:my-4">
             <span className="block drop-shadow-xs">{slide.titleLine1}</span>
-            <span className="block drop-shadow-xs">{slide.titleLine2}</span>
+            {slide.titleLine2 && <span className="block drop-shadow-xs">{slide.titleLine2}</span>}
           </h1>
 
           {/* Subtitle */}
