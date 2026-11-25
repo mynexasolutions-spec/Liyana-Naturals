@@ -40,23 +40,13 @@ function applyHomepageConfiguration(
 ) {
   const bestSellerSlugs = stringList(configuration.bestSellerProductSlugs);
   const featuredCategorySlugs = stringList(configuration.featuredCategorySlugs);
-  const featuredBlogSlugs = stringList(configuration.featuredBlogSlugs);
-
   return {
     products: orderBySlugs(products, bestSellerSlugs),
     categories: orderBySlugs(
       categories.filter((category) => category.isFeatured !== false),
       featuredCategorySlugs,
     ),
-    blogs: orderBySlugs(
-      blogs.map((blog) => ({
-        ...blog,
-        featured: featuredBlogSlugs.length > 0
-          ? featuredBlogSlugs.includes(blog.slug)
-          : blog.featured,
-      })),
-      featuredBlogSlugs,
-    ),
+    blogs: blogs.filter((blog) => blog.featured === true),
   };
 }
 

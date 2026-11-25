@@ -4,9 +4,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   Leaf,
   FlaskConical,
   Heart,
@@ -81,35 +78,38 @@ export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) 
       }))
     : fallbackSlides;
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
   }, [slides.length]);
 
-  const prevSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  }, [slides.length]);
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const timer = window.setInterval(nextSlide, 3000);
+    return () => window.clearInterval(timer);
+  }, [nextSlide, slides.length]);
 
   useEffect(() => {
-    if (isPaused) return;
-    const timer = setInterval(() => {
-      nextSlide();
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [isPaused, nextSlide]);
+    setIsTransitioning(true);
+    const timer = window.setTimeout(() => setIsTransitioning(false), 300);
+    return () => window.clearTimeout(timer);
+  }, [currentSlide]);
 
-  const slide = slides[currentSlide];
+  const activeSlideIndex = Math.min(currentSlide, slides.length - 1);
+  const slide = slides[activeSlideIndex];
 
   return (
     <section
       className="relative w-full bg-[#FBF7EE] overflow-hidden min-h-[500px] sm:min-h-[540px] md:min-h-[480px] lg:min-h-[540px] xl:min-h-[620px] md:aspect-[1914/822] max-h-[822px] flex items-start md:items-start select-none"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
       aria-label="Hero Showcase"
     >
       {/* Background High-Definition Hero Image (Responsive: Desktop & Mobile) */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
+      <div
+        className={`absolute inset-0 z-0 pointer-events-none transition-opacity duration-300 ease-in-out ${
+          isTransitioning ? "opacity-0" : "opacity-100"
+        } motion-reduce:opacity-100 motion-reduce:transition-none`}
+      >
         <picture className="absolute inset-0 block h-full w-full">
           <source
             media="(max-width: 767px)"
@@ -138,7 +138,11 @@ export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) 
         />
       </div>
 
-      <Container className="relative z-10 w-full pt-5 pb-8 sm:py-8 md:py-10 lg:py-14 sm:mt-16 lg:mt-18 xl:mt-20">
+      <Container
+        className={`relative z-10 w-full pt-5 pb-8 sm:py-8 md:py-10 lg:py-14 sm:mt-16 lg:mt-18 xl:mt-20 transition-opacity duration-300 ease-in-out ${
+          isTransitioning ? "opacity-0" : "opacity-100"
+        } motion-reduce:opacity-100 motion-reduce:transition-none`}
+      >
         <div className="max-w-lg md:max-w-[500px] lg:max-w-[620px] text-left">
           {/* Eyebrow - Modern Micro Pill */}
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#263D18]/10 border border-[#263D18]/15 mb-2">
@@ -163,10 +167,9 @@ export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) 
           <div className="flex items-center gap-2.5 sm:gap-3.5 mb-4 sm:mb-8">
             <Link
               href={slide.primaryBtn.href}
-              className="flex items-center justify-between gap-1.5 px-4 sm:px-6 py-2 sm:py-4 rounded-[5px] bg-[#263D18] text-[#FBF7EE] text-[14px] sm:text-[18px] font-medium hover:bg-[#1D3214] shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 group w-3/5 sm:!max-w-[360px] max-w-[280px]"
+              className="inline-flex w-fit min-w-[180px] max-w-full items-center justify-center px-4 text-center sm:min-w-[220px] sm:max-w-[360px] sm:px-6 py-2 sm:py-4 rounded-[5px] bg-[#263D18] text-[#FBF7EE] text-[14px] sm:text-[18px] font-medium hover:bg-[#1D3214] shadow-sm hover:shadow-md transition-all duration-200 active:scale-95"
             >
               <span>{slide.primaryBtn.label}</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </Link>
 
             {/* <Link
@@ -197,25 +200,6 @@ export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) 
         </div>
       </Container>
 
-      {/* Side Slider Arrows (Visible on sm+ screens) */}
-      <button
-        type="button"
-        onClick={prevSlide}
-        aria-label="Previous Slide"
-        className="hidden sm:flex absolute left-3 lg:left-6 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/25 hover:bg-[#263D18] text-white items-center justify-center backdrop-blur-xs transition-all duration-200 shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#263D18]"
-      >
-        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 -ml-0.5" />
-      </button>
-
-      <button
-        type="button"
-        onClick={nextSlide}
-        aria-label="Next Slide"
-        className="hidden sm:flex absolute right-3 lg:right-6 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/80 hover:bg-[#263D18] hover:text-white text-[#28321F] items-center justify-center backdrop-blur-xs transition-all duration-200 shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#263D18]"
-      >
-        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 -mr-0.5" />
-      </button>
-
       {/* Bottom Center Carousel Dots */}
       <div className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
         {slides.map((s, idx) => (
@@ -224,12 +208,21 @@ export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) 
             type="button"
             onClick={() => setCurrentSlide(idx)}
             aria-label={`Go to slide ${idx + 1}`}
-            className={`transition-all duration-300 rounded-full ${
-              idx === currentSlide
-                ? "w-6 h-2 bg-[#263D18]"
+            aria-current={idx === activeSlideIndex ? "step" : undefined}
+            className={`relative overflow-hidden transition-all duration-300 rounded-full ${
+              idx === activeSlideIndex
+                ? "w-6 h-2 bg-[#263D18]/20"
                 : "w-2 h-2 bg-white/80 hover:bg-white border border-[#28321F]/20"
             }`}
-          />
+          >
+            {idx === activeSlideIndex && (
+              <span
+                key={`${s.id}-${activeSlideIndex}`}
+                className="absolute inset-0 origin-left rounded-full bg-[#263D18] animate-hero-dot-progress"
+                aria-hidden="true"
+              />
+            )}
+          </button>
         ))}
       </div>
     </section>

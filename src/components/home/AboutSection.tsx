@@ -3,7 +3,6 @@
 import React, { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -329,10 +328,9 @@ export function AboutSection() {
             <div className="flex justify-center sm:justify-start">
               <Link
                 href="/about"
-                className="group inline-flex items-center gap-2.5 bg-[#263D18] hover:bg-[#1D3214] text-white font-sans text-sm font-medium px-6 sm:px-7 py-2.5 sm:py-3 rounded-full transition-all duration-300 shadow-xs hover:shadow-md active:scale-95"
+                className="inline-flex items-center justify-center bg-[#263D18] hover:bg-[#1D3214] text-white font-sans text-sm font-medium px-5 sm:px-6 py-2.5 sm:py-3 rounded-full transition-all duration-300 shadow-xs hover:shadow-md active:scale-95"
               >
                 <span>Know More</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
               </Link>
             </div>
           </div>

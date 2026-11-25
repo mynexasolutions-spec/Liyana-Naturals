@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getAuthErrorMessage } from "@/lib/auth/errors";
 
 type AdminProfile = {
   role: string;
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
   if (error || !data.user) {
     return errorResponse(
       sessionResponse,
-      error?.message ?? "Unable to sign in.",
+      getAuthErrorMessage(error, "login"),
       401,
     );
   }

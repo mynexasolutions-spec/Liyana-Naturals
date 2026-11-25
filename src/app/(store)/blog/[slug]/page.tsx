@@ -85,6 +85,10 @@ export default async function SingleBlogPage({ params }: BlogDetailPageProps) {
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   const sections = post.sections ?? [];
+  const contentParagraphs = (post.content ?? "")
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
 
   return (
     <main className="min-h-screen bg-[#FBF7EE] text-[#28321F] overflow-x-hidden">
@@ -178,7 +182,6 @@ export default async function SingleBlogPage({ params }: BlogDetailPageProps) {
                     href="/blog"
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#F6EEDD] text-[#263D18] text-xs sm:text-sm font-medium border border-[#28321F]/12 transition-colors"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
                     <span>All Blogs</span>
                   </Link>
                 </div>
@@ -310,6 +313,19 @@ export default async function SingleBlogPage({ params }: BlogDetailPageProps) {
                     )}
                   </div>
                 ))}
+
+                {sections.length === 0 && contentParagraphs.length > 0 && (
+                  <div className="space-y-4">
+                    {contentParagraphs.map((paragraph, index) => (
+                      <p
+                        key={`${post.id}-paragraph-${index}`}
+                        className="font-sans text-[13.5px] sm:text-[14.5px] md:text-[15.5px] text-[#28321F]/85 leading-[1.7]"
+                      >
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                )}
 
                 {/* Tags Footer */}
                 {post.tags && post.tags.length > 0 && (
@@ -490,10 +506,9 @@ export default async function SingleBlogPage({ params }: BlogDetailPageProps) {
                 </p>
                 <Link
                   href="/shop"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#FBF7EE] hover:bg-white text-[#1D3214] text-xs font-semibold transition-colors"
+                  className="inline-flex items-center justify-center px-3 py-2 rounded-full bg-[#FBF7EE] hover:bg-white text-[#1D3214] text-xs font-semibold transition-colors"
                 >
                   <span>Explore Shop</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
             </aside>

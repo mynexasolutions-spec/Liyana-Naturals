@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { BlogCard } from "@/components/blog/BlogCard";
 import type { BlogPost } from "@/types";
 
@@ -81,7 +80,7 @@ export function BlogSection({ posts }: { posts: BlogPost[] }) {
           ======================================================================
         */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-7 lg:gap-8">
-          {posts.filter((post) => post.featured ?? true).slice(0, 3).map((post) => (
+          {posts.filter((post) => post.featured === true).slice(0, 3).map((post) => (
             <BlogCard key={post.id} post={post} variant="compact" />
           ))}
         </div>
@@ -94,11 +93,10 @@ export function BlogSection({ posts }: { posts: BlogPost[] }) {
         <div className="mt-10 sm:mt-12 flex justify-center">
           <Link
             href="/blog"
-            className="inline-flex items-center justify-center gap-2.5 px-8 sm:px-10 py-3.5 sm:py-4 rounded-[5px] bg-[#1D3214] text-white font-sans font-semibold text-[15px] sm:text-base hover:bg-[#263D18] shadow-[0_6px_20px_rgba(29,50,20,0.2)] hover:shadow-[0_10px_28px_rgba(29,50,20,0.3)] hover:scale-105 active:scale-95 transition-all duration-300 group/btn"
+            className="inline-flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 rounded-[5px] bg-[#1D3214] text-white font-sans font-semibold text-[15px] sm:text-base hover:bg-[#263D18] shadow-[0_6px_20px_rgba(29,50,20,0.2)] hover:shadow-[0_10px_28px_rgba(29,50,20,0.3)] hover:scale-105 active:scale-95 transition-all duration-300"
             aria-label="View All Blogs"
           >
             <span>View All Blogs</span>
-            <ArrowRight className="w-4 h-4 sm:w-4.5 sm:h-4.5 group-hover/btn:translate-x-1 transition-transform" />
           </Link>
         </div>
       </div>

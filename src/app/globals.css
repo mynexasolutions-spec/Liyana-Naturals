@@ -306,3 +306,23 @@ video {
 .animate-marquee-infinite:hover {
   animation-play-state: paused;
 }
+
+@keyframes hero-dot-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.animate-hero-dot-progress {
+  animation: hero-dot-progress 3s linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-hero-dot-progress {
+    animation: none;
+    transform: scaleX(1);
+  }
+}

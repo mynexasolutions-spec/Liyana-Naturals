@@ -3,7 +3,6 @@
 import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
 import { ProductCategory } from "@/types";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -196,12 +195,11 @@ export function CategorySection({ categories = [] }: { categories?: ProductCateg
                   <div className="absolute inset-0 rounded-[5px] ring-1 ring-inset ring-black/5 pointer-events-none" />
                 </div>
 
-                {/* Category Title with Animated Arrow below - Increased Text Size */}
-                <div className="mt-3 sm:mt-4 flex items-center justify-center gap-1.5 text-[#28321F] group-hover:text-[#263D18] transition-colors">
+                {/* Category title */}
+                <div className="mt-3 sm:mt-4 flex items-center justify-center text-[#28321F] group-hover:text-[#263D18] transition-colors">
                   <span className="font-sans text-base sm:text-lg lg:text-xl font-medium tracking-tight">
                     {category.name}
                   </span>
-                  <ArrowRight className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#28321F] group-hover:text-[#263D18] group-hover:translate-x-1.5 transition-transform duration-300" />
                 </div>
               </Link>
             );

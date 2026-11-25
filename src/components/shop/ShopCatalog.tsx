@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -1000,14 +999,13 @@ export function ShopCatalog({
                 <button
                   type="button"
                   onClick={() => setIsComboBuilderOpen((prev) => !prev)}
-                  className="group inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
+                  className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
                 >
                   <span>
                     {isComboBuilderOpen
                       ? "Hide Combo Builder"
                       : "Create Your Combo"}
                   </span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
 

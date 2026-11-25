@@ -245,6 +245,7 @@ export default function ContactPage() {
   // Form Validation & Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitted(false);
     const errors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
@@ -596,6 +597,7 @@ export default function ContactPage() {
                           type="text"
                           value={formData.name}
                           onChange={handleChange}
+                          maxLength={120}
                           placeholder=""
                           className={cn(
                             "w-full px-4 py-2.5 sm:py-3 rounded-xl bg-white text-[#28321F] text-sm font-normal border transition-all duration-200 focus:outline-none shadow-2xs",
@@ -626,6 +628,7 @@ export default function ContactPage() {
                           type="email"
                           value={formData.email}
                           onChange={handleChange}
+                          maxLength={254}
                           placeholder=""
                           className={cn(
                             "w-full px-4 py-2.5 sm:py-3 rounded-xl bg-white text-[#28321F] text-sm font-normal border transition-all duration-200 focus:outline-none shadow-2xs",
@@ -702,6 +705,7 @@ export default function ContactPage() {
                         rows={4}
                         value={formData.message}
                         onChange={handleChange}
+                        maxLength={5000}
                         placeholder="Type your message here..."
                         className={cn(
                           "w-full px-4 py-2.5 sm:py-3 rounded-xl bg-white text-[#28321F] text-sm font-normal border transition-all duration-200 focus:outline-none shadow-2xs resize-y min-h-[110px]",

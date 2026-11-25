@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { WishlistClient } from "@/components/wishlist/WishlistClient";
 
@@ -76,10 +76,9 @@ export default function WishlistPage() {
 
             <Link
               href="/shop"
-              className="group self-start sm:self-auto inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-medium shadow-2xs transition-all active:scale-95 shrink-0"
+              className="self-start sm:self-auto inline-flex items-center px-3 sm:px-4 py-2 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-medium shadow-2xs transition-all active:scale-95 shrink-0"
             >
               <span>Continue Shopping</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
         </section>
@@ -134,10 +133,9 @@ export default function WishlistPage() {
 
               <Link
                 href="/shop"
-                className="group shrink-0 inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-[5px] bg-[#FBF7EE] hover:bg-white text-[#1D3214] font-semibold text-xs sm:text-sm shadow-xs transition-all active:scale-95 whitespace-nowrap"
+                className="shrink-0 inline-flex items-center px-4 sm:px-5 py-2.5 rounded-[5px] bg-[#FBF7EE] hover:bg-white text-[#1D3214] font-semibold text-xs sm:text-sm shadow-xs transition-all active:scale-95 whitespace-nowrap"
               >
                 <span>Shop All Products</span>
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
           </div>

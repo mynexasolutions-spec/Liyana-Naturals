@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import ImageKit from "imagekit";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getAdminSession } from "@/lib/supabase/admin-auth";
 
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const supabase = createSupabaseAdminClient();
 
   let body: { fileId?: unknown };
   try {
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "ImageKit could not delete the requested file." }, { status: 502 });
   }
-  const { error } = await session.supabase
+  const { error } = await supabase
     .from("media_assets")
     .delete()
     .eq("imagekit_file_id", fileId);

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Leaf } from "lucide-react";
+import { Leaf } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 
 export default function BlogPostNotFound() {
@@ -22,9 +22,8 @@ export default function BlogPostNotFound() {
           </p>
           <Link
             href="/blog"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-sm font-medium transition-colors"
+            className="inline-flex items-center justify-center px-5 py-3 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-sm font-medium transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
             <span>Back to All Blogs</span>
           </Link>
         </div>

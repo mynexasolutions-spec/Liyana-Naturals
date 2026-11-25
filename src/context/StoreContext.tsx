@@ -10,6 +10,14 @@ import React, {
 } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getAuthErrorMessage } from "@/lib/auth/errors";
+import {
+  authEmailSchema,
+  authPasswordSchema,
+  firstValidationMessage,
+  loginPasswordSchema,
+  registerInputSchema,
+} from "@/lib/auth/schema";
 import type { AuthUser, Product } from "@/types";
 
 export interface CartEntry {
@@ -21,6 +29,7 @@ export interface AuthActionResult {
   ok: boolean;
   error?: string;
   user?: AuthUser;
+  requiresEmailConfirmation?: boolean;
 }
 
 interface AddToCartOptions {
@@ -70,7 +79,6 @@ interface StoreContextValue {
   }) => Promise<AuthActionResult>;
   resetUserPassword: (input: {
     email: string;
-    newPassword: string;
   }) => Promise<AuthActionResult>;
   updateUserPassword: (newPassword: string) => Promise<AuthActionResult>;
   logoutUser: () => Promise<void>;
@@ -144,7 +152,12 @@ export function StoreProvider({
         }
 
         const { data, error } = await supabase.auth.getUser();
-        if (mounted && !error) setCurrentUser(data.user ? toAuthUser(data.user) : null);
+        if (mounted && !error) {
+          setCurrentUser(data.user ? toAuthUser(data.user) : null);
+          if (new URLSearchParams(window.location.search).get("reset") === "1") {
+            setPasswordRecovery(true);
+          }
+        }
       } catch {
         // Keep cart and wishlist usable when authentication is unavailable.
       } finally {
@@ -267,16 +280,41 @@ export function StoreProvider({
       mobile: string;
       password: string;
     }): Promise<AuthActionResult> => {
-      const normalizedEmail = input.email.trim().toLowerCase();
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: input.password,
-        options: { data: { full_name: input.fullName.trim(), phone: input.mobile.trim() } },
-      });
-      if (error) return { ok: false, error: error.message };
-      const publicUser = data.user ? toAuthUser(data.user) : undefined;
-      if (publicUser) setCurrentUser(publicUser);
-      return { ok: true, user: publicUser };
+      const parsed = registerInputSchema.safeParse(input);
+      if (!parsed.success) {
+        return { ok: false, error: firstValidationMessage(parsed.error) };
+      }
+
+      const normalizedEmail = parsed.data.email.toLowerCase();
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password: parsed.data.password,
+          options: {
+            emailRedirectTo:
+              typeof window === "undefined"
+                ? undefined
+                : `${window.location.origin}/login`,
+            data: {
+              full_name: parsed.data.fullName,
+              phone: parsed.data.mobile,
+            },
+          },
+        });
+        if (error) {
+          return { ok: false, error: getAuthErrorMessage(error, "register") };
+        }
+
+        const publicUser = data.user ? toAuthUser(data.user) : undefined;
+        if (data.session && publicUser) setCurrentUser(publicUser);
+        return {
+          ok: true,
+          user: data.session ? publicUser : undefined,
+          requiresEmailConfirmation: Boolean(data.user && !data.session),
+        };
+      } catch (error) {
+        return { ok: false, error: getAuthErrorMessage(error, "register") };
+      }
     },
     [supabase]
   );
@@ -288,14 +326,27 @@ export function StoreProvider({
       rememberMe?: boolean;
     }): Promise<AuthActionResult> => {
       const normalizedEmail = input.email.trim().toLowerCase();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: input.password,
-      });
-      if (error) return { ok: false, error: error.message };
-      const publicUser = toAuthUser(data.user);
-      setCurrentUser(publicUser);
-      return { ok: true, user: publicUser };
+      const emailResult = authEmailSchema.safeParse(normalizedEmail);
+      if (!emailResult.success) {
+        return { ok: false, error: firstValidationMessage(emailResult.error) };
+      }
+      const passwordResult = loginPasswordSchema.safeParse(input.password);
+      if (!passwordResult.success) {
+        return { ok: false, error: firstValidationMessage(passwordResult.error) };
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: emailResult.data,
+          password: passwordResult.data,
+        });
+        if (error) return { ok: false, error: getAuthErrorMessage(error, "login") };
+        const publicUser = toAuthUser(data.user);
+        setCurrentUser(publicUser);
+        return { ok: true, user: publicUser };
+      } catch (error) {
+        return { ok: false, error: getAuthErrorMessage(error, "login") };
+      }
     },
     [supabase]
   );
@@ -307,30 +358,61 @@ export function StoreProvider({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/login` },
       });
-      return error ? { ok: false, error: error.message } : { ok: true };
-    },
-    [supabase]
-  );
-
-  const resetUserPassword = useCallback(
-    async (input: { email: string; newPassword: string }): Promise<AuthActionResult> => {
-      const normalizedEmail = input.email.trim().toLowerCase();
-      void input.newPassword;
-      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: `${window.location.origin}/login`,
-      });
       return error
-        ? { ok: false, error: error.message }
+        ? { ok: false, error: getAuthErrorMessage(error, "login") }
         : { ok: true };
     },
     [supabase]
   );
 
+  const resetUserPassword = useCallback(
+    async (input: { email: string }): Promise<AuthActionResult> => {
+      const normalizedEmail = input.email.trim().toLowerCase();
+      const emailResult = authEmailSchema.safeParse(normalizedEmail);
+      if (!emailResult.success) {
+        return { ok: false, error: firstValidationMessage(emailResult.error) };
+      }
+
+      try {
+        const callbackUrl = new URL("/auth/callback", window.location.origin);
+        callbackUrl.searchParams.set("next", "/login");
+        const { error } = await supabase.auth.resetPasswordForEmail(
+          emailResult.data,
+          { redirectTo: callbackUrl.toString() },
+        );
+        return error
+          ? { ok: false, error: getAuthErrorMessage(error, "reset") }
+          : { ok: true };
+      } catch (error) {
+        return { ok: false, error: getAuthErrorMessage(error, "reset") };
+      }
+    },
+    [supabase]
+  );
+
   const updateUserPassword = useCallback(async (newPassword: string): Promise<AuthActionResult> => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) return { ok: false, error: error.message };
-    setPasswordRecovery(false);
-    return { ok: true };
+    const passwordResult = authPasswordSchema.safeParse(newPassword);
+    if (!passwordResult.success) {
+      return { ok: false, error: firstValidationMessage(passwordResult.error) };
+    }
+
+    try {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        return {
+          ok: false,
+          error: "This password reset link is invalid or has expired. Request a new one.",
+        };
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: passwordResult.data });
+      if (error) return { ok: false, error: getAuthErrorMessage(error, "password") };
+      setPasswordRecovery(false);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: getAuthErrorMessage(error, "password") };
+    }
   }, [supabase]);
 
   const logoutUser = useCallback(async () => {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { cn } from "@/lib/utils";
 
@@ -218,10 +218,9 @@ export default function AboutPage() {
             <div className="flex justify-center md:justify-start w-full md:w-auto">
               <Link
                 href="/shop"
-                className="group inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm md:text-[15px] font-medium shadow-xs hover:shadow-md transition-all duration-300 hover:scale-[1.02] active:scale-95"
+                className="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 sm:py-3 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm md:text-[15px] font-medium shadow-xs hover:shadow-md transition-all duration-300 hover:scale-[1.02] active:scale-95"
               >
                 <span>Explore Our Products</span>
-                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FBF7EE] group-hover:translate-x-1 transition-transform duration-300" />
               </Link>
             </div>
           </div>
@@ -704,10 +703,9 @@ export default function AboutPage() {
               <div className="shrink-0 pt-1 lg:pt-0">
                 <Link
                   href="/shop"
-                  className="group inline-flex items-center gap-2 px-6 sm:px-8 py-2.5 sm:py-3 rounded-full bg-[#FBF7EE] hover:bg-white text-[#1D3214] font-medium text-xs sm:text-sm md:text-[15px] shadow-xs hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap"
+                  className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-[#FBF7EE] hover:bg-white text-[#1D3214] font-medium text-xs sm:text-sm md:text-[15px] shadow-xs hover:shadow-md transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap"
                 >
                   <span>Shop Now</span>
-                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#1D3214] group-hover:translate-x-1 transition-transform duration-300" />
                 </Link>
               </div>
             </div>

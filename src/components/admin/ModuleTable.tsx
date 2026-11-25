@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { ArrowDownUp, CheckCircle2, ImageOff, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { renderableImageUrl } from "@/lib/media/image-url";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -21,6 +22,8 @@ export interface ModuleField {
   key: string;
   label: string;
   type?: ModuleFieldType;
+  valueFormat?: "string-array";
+  placeholder?: string;
   control?: "toggle";
   defaultValue?: string | boolean;
   required?: boolean;
@@ -52,6 +55,7 @@ interface ModuleTableProps {
   columns: ModuleColumn[];
   searchKeys: string[];
   emptyFields: ModuleField[];
+  mutationEndpoint?: string;
   orderBy?: string;
   allowCreate?: boolean;
   filters?: { key: string; value: string; operator?: "eq" | "like" }[];
@@ -85,15 +89,14 @@ function imageList(value: unknown): unknown[] {
 
 function imageEntries(value: unknown): ImageEntry[] {
   return imageList(value).flatMap((image) => {
-    if (typeof image === "string" && image.trim()) return [{ src: image.trim() }];
+    if (typeof image === "string") {
+      const src = renderableImageUrl(image);
+      return src ? [{ src }] : [];
+    }
     if (!image || typeof image !== "object") return [];
 
     const record = image as Record<string, unknown>;
-    const src = typeof record.src === "string" && record.src.trim()
-      ? record.src.trim()
-      : typeof record.url === "string" && record.url.trim()
-        ? record.url.trim()
-        : null;
+    const src = renderableImageUrl(record.src) ?? renderableImageUrl(record.url);
     if (!src) return [];
 
     return [{
@@ -110,10 +113,31 @@ function imageSource(value: unknown): string | null {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) return imageEntries(parsed)[0]?.src ?? null;
     } catch {
-      return value.trim();
+      return renderableImageUrl(value);
     }
   }
   return imageEntries(value)[0]?.src ?? null;
+}
+
+async function readJsonResponse(response: Response): Promise<Record<string, unknown>> {
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error(`Request failed (${response.status}). Try again.`);
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error(`Request failed (${response.status}). Try again.`);
+  }
+
+  const result = body as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(
+      typeof result.error === "string" ? result.error : `Request failed (${response.status}).`,
+    );
+  }
+  return result;
 }
 
 function ImagePreview({
@@ -130,6 +154,7 @@ function ImagePreview({
   height: number;
 }) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
   if (failed) {
     return (
       <div role="img" aria-label={`${alt} unavailable`} className={`${className} grid place-items-center text-[#777968]`}>
@@ -250,7 +275,26 @@ function renderCell(
   return String(value ?? "—");
 }
 
-function inputValue(value: unknown, type?: ModuleFieldType): string | boolean {
+function inputValue(
+  value: unknown,
+  type?: ModuleFieldType,
+  valueFormat?: ModuleField["valueFormat"],
+): string | boolean {
+  if (valueFormat === "string-array") {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === "string").join(", ");
+    }
+    if (typeof value === "string") {
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+          return parsed.join(", ");
+        }
+      } catch {
+        // Keep legacy text values readable in the simple input.
+      }
+    }
+  }
   if (type === "boolean") return Boolean(value);
   if (type === "json") {
     if (typeof value === "string") return value;
@@ -263,6 +307,11 @@ function inputValue(value: unknown, type?: ModuleFieldType): string | boolean {
     return entries.length > 0 ? JSON.stringify(entries, null, 2) : String(value ?? "[]");
   }
   return value === undefined || value === null ? "" : String(value);
+}
+
+function stringArrayValue(value: unknown): string[] {
+  const text = String(value).trim();
+  return [...new Set(text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean))];
 }
 
 function buildPayload(
@@ -279,7 +328,16 @@ function buildPayload(
       return { error: `${field.label} is required.` };
     }
 
-    if (stringValue === "" || stringValue === undefined) continue;
+    if (stringValue === "" || stringValue === undefined) {
+      if (field.valueFormat === "string-array") payload[field.key] = [];
+      if (field.type === "image" && field.assetIdKey) {
+        payload[field.key] = null;
+        payload[field.assetIdKey] = null;
+        if (field.syncKeys?.url) payload[field.syncKeys.url] = null;
+        if (field.syncKeys?.fileId) payload[field.syncKeys.fileId] = null;
+      }
+      continue;
+    }
 
     if (field.type === "email" && typeof stringValue === "string") {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stringValue)) {
@@ -295,6 +353,11 @@ function buildPayload(
         return { error: `${field.label} must be a valid number.` };
       }
       payload[field.key] = numberValue;
+      continue;
+    }
+
+    if (field.valueFormat === "string-array") {
+      payload[field.key] = stringArrayValue(stringValue);
       continue;
     }
 
@@ -388,6 +451,7 @@ export function ModuleTable({
   columns,
   searchKeys,
   emptyFields,
+  mutationEndpoint,
   orderBy = "created_at",
   allowCreate = true,
   filters = EMPTY_FILTERS,
@@ -412,6 +476,22 @@ export function ModuleTable({
 
   const load = useCallback(async () => {
     setLoading(true);
+    if (mutationEndpoint) {
+      try {
+        const response = await fetch(mutationEndpoint, { credentials: "same-origin", cache: "no-store" });
+        const result = await readJsonResponse(response);
+        const records = result[table];
+        if (!Array.isArray(records)) throw new Error(`${title} could not be loaded.`);
+        setError("");
+        setRows(records as Row[]);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : `${title} could not be loaded.`);
+        setRows([]);
+      }
+      setLoading(false);
+      return;
+    }
+
     let query = supabase.from(table).select("*");
     for (const filter of filters) {
       query = filter.operator === "like"
@@ -428,7 +508,7 @@ export function ModuleTable({
       setRows((data as Row[]) ?? []);
     }
     setLoading(false);
-  }, [filters, orderBy, supabase, table]);
+  }, [filters, mutationEndpoint, orderBy, supabase, table]);
 
   useEffect(() => {
     const relationFields = emptyFields.filter((field) => field.relation);
@@ -511,10 +591,26 @@ export function ModuleTable({
     setTogglingKey(toggleKey);
     setRows((current) => current.map((item) => item.id === row.id ? { ...item, [key]: nextValue } : item));
 
-    const { error: updateError } = await supabase
-      .from(table)
-      .update({ [key]: nextValue })
-      .eq("id", row.id);
+    let updateError: Error | null = null;
+    try {
+      if (mutationEndpoint) {
+        const response = await fetch(`${mutationEndpoint}/${encodeURIComponent(row.id)}`, {
+          method: "PATCH",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [key]: nextValue }),
+        });
+        await readJsonResponse(response);
+      } else {
+        const result = await supabase
+          .from(table)
+          .update({ [key]: nextValue })
+          .eq("id", row.id);
+        updateError = result.error;
+      }
+    } catch (error) {
+      updateError = error instanceof Error ? error : new Error("The record could not be updated.");
+    }
     await load();
     if (updateError) {
       setError(updateError.message);
@@ -550,7 +646,7 @@ export function ModuleTable({
     setForm(
         Object.fromEntries(
           emptyFields.flatMap((field) => [
-          [field.key, field.defaultValue ?? (field.type === "boolean" ? false : field.type === "json" || field.type === "image" ? "[]" : "")],
+          [field.key, field.defaultValue ?? (field.valueFormat === "string-array" ? "" : field.type === "boolean" ? false : field.type === "image" ? (field.assetIdKey ? "" : "[]") : field.type === "json" ? "[]" : "")],
           ...(field.assetIdKey ? [[field.assetIdKey, ""]] : []),
         ]),
       ),
@@ -567,7 +663,7 @@ export function ModuleTable({
     setForm(
       Object.fromEntries(
         emptyFields.flatMap((field) => [
-          [field.key, inputValue(row[field.key], field.type)],
+          [field.key, inputValue(row[field.key], field.type, field.valueFormat)],
           ...(field.assetIdKey ? [[field.assetIdKey, row[field.assetIdKey] ?? ""]] : []),
         ]),
       ),
@@ -584,8 +680,15 @@ export function ModuleTable({
       const authResponse = await fetch(
         `/api/imagekit/auth?folder=${encodeURIComponent(field.folder ?? "/liyana-naturals")}`,
       );
-      const auth = await authResponse.json();
-      if (!authResponse.ok) throw new Error(auth.error ?? "Unable to authorize image upload.");
+      const auth = await readJsonResponse(authResponse);
+      if (
+        typeof auth.publicKey !== "string" ||
+        typeof auth.signature !== "string" ||
+        typeof auth.token !== "string" ||
+        typeof auth.folder !== "string"
+      ) {
+        throw new Error("Image upload authorization is incomplete. Check the ImageKit configuration.");
+      }
 
       const uploadForm = new FormData();
       uploadForm.append("file", file);
@@ -600,38 +703,45 @@ export function ModuleTable({
         method: "POST",
         body: uploadForm,
       });
-      const upload = await uploadResponse.json();
-      if (!uploadResponse.ok || !upload.url || !upload.fileId) {
-        throw new Error(upload.message ?? "Image upload failed.");
+      const upload = await readJsonResponse(uploadResponse);
+      if (typeof upload.url !== "string" || typeof upload.fileId !== "string") {
+        throw new Error(typeof upload.message === "string" ? upload.message : "Image upload failed.");
       }
+      const uploadUrl = renderableImageUrl(upload.url);
+      if (!uploadUrl) {
+        throw new Error("ImageKit returned an invalid image URL. Upload the image again.");
+      }
+      const uploadFileId = upload.fileId;
+      const uploadName = typeof upload.name === "string" ? upload.name : file.name;
 
       const assetResponse = await fetch("/api/imagekit/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fileId: upload.fileId,
-          name: upload.name ?? file.name,
-          url: upload.url,
+          fileId: uploadFileId,
+          name: uploadName,
+          url: uploadUrl,
           thumbnailUrl: upload.thumbnailUrl,
           mime: file.type,
           sizeBytes: file.size,
           folder: auth.folder,
         }),
       });
-      const asset = await assetResponse.json();
-      if (!assetResponse.ok) {
+      try {
+        await readJsonResponse(assetResponse);
+      } catch (assetError) {
         try {
-          await deleteImage(upload.fileId);
+          await deleteImage(uploadFileId);
         } catch {
           // Keep the metadata error visible; the orphaned upload can be removed from ImageKit.
         }
-        throw new Error(asset.error ?? "Image metadata could not be saved.");
+        throw assetError;
       }
 
-      setPendingUploadedIds((current) => [...new Set([...current, upload.fileId])]);
+      setPendingUploadedIds((current) => [...new Set([...current, uploadFileId])]);
       setForm((current) => {
         if (field.assetIdKey) {
-          return { ...current, [field.key]: upload.url, [field.assetIdKey]: upload.fileId };
+          return { ...current, [field.key]: uploadUrl, [field.assetIdKey]: uploadFileId };
         }
         const currentImages = (() => {
           try {
@@ -646,10 +756,10 @@ export function ModuleTable({
           [field.key]: JSON.stringify([
             ...currentImages,
             {
-              src: upload.url,
-              url: upload.url,
-              alt: upload.name ?? file.name,
-              fileId: upload.fileId,
+              src: uploadUrl,
+              url: uploadUrl,
+              alt: uploadName,
+              fileId: uploadFileId,
             },
           ]),
         };
@@ -667,10 +777,7 @@ export function ModuleTable({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fileId }),
     });
-    if (!response.ok) {
-      const result = await response.json();
-      throw new Error(result.error ?? "Uploaded image could not be deleted.");
-    }
+    await readJsonResponse(response);
   }
 
   function fileIdsForRow(row: Row): string[] {
@@ -710,10 +817,29 @@ export function ModuleTable({
     }
 
     setSaving(true);
-    const mutation = editing
-      ? supabase.from(table).update(result.payload).eq("id", editing.id)
-      : supabase.from(table).insert(result.payload);
-    const { error: mutationError } = await mutation;
+    let mutationError: Error | null = null;
+    try {
+      if (mutationEndpoint) {
+        const endpoint = editing
+          ? `${mutationEndpoint}/${encodeURIComponent(editing.id)}`
+          : mutationEndpoint;
+        const response = await fetch(endpoint, {
+          method: editing ? "PATCH" : "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(result.payload),
+        });
+        await readJsonResponse(response);
+      } else {
+        const mutation = editing
+          ? supabase.from(table).update(result.payload).eq("id", editing.id)
+          : supabase.from(table).insert(result.payload);
+        const response = await mutation;
+        mutationError = response.error;
+      }
+    } catch (error) {
+      mutationError = error instanceof Error ? error : new Error("The record could not be saved.");
+    }
 
     if (mutationError) {
       setError(mutationError.message);
@@ -763,10 +889,24 @@ export function ModuleTable({
   async function remove(row: Row) {
     if (!window.confirm(`Delete this ${title.toLowerCase()} record? This cannot be undone.`)) return;
     setError("");
-    const { error: deleteError } = await supabase
-      .from(table)
-      .delete()
-      .eq("id", row.id);
+    let deleteError: Error | null = null;
+    try {
+      if (mutationEndpoint) {
+        const response = await fetch(`${mutationEndpoint}/${encodeURIComponent(row.id)}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+        });
+        await readJsonResponse(response);
+      } else {
+        const response = await supabase
+          .from(table)
+          .delete()
+          .eq("id", row.id);
+        deleteError = response.error;
+      }
+    } catch (error) {
+      deleteError = error instanceof Error ? error : new Error("The record could not be deleted.");
+    }
     if (deleteError) setError(deleteError.message);
     else {
       for (const fileId of fileIdsForRow(row)) {
@@ -968,15 +1108,19 @@ export function ModuleTable({
                         <p className="text-xs leading-relaxed text-[#777968]">{field.imageValidation.helpText}</p>
                       )}
                       {uploadingKey === field.key && <p className="text-xs text-[#777968]">Uploading securely…</p>}
-                      {field.assetIdKey && typeof form[field.key] === "string" && Boolean(form[field.key]) && (
+                      {field.assetIdKey && imageSource(form[field.key]) ? (
                         <ImagePreview
-                          src={String(form[field.key])}
+                          src={imageSource(form[field.key])!}
                           alt={`${field.label} preview`}
                           width={640}
                           height={360}
                           className="h-32 w-full max-w-sm rounded-xl border border-[#28321F]/8 object-cover"
                         />
-                      )}
+                      ) : field.assetIdKey ? (
+                        <div className="grid h-32 w-full max-w-sm place-items-center rounded-xl border border-dashed border-[#28321F]/12 bg-[#FBF7EE] px-4 text-center text-xs text-[#777968]">
+                          No image uploaded yet.
+                        </div>
+                      ) : null}
                       {!field.assetIdKey && (
                         <>
                           {uploadedImages.length > 0 ? (
@@ -1036,6 +1180,7 @@ export function ModuleTable({
                     <textarea
                       id={field.key}
                       value={String(form[field.key] ?? "")}
+                      placeholder={field.placeholder}
                       onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
                       className="min-h-24 w-full rounded-xl border border-[#28321F]/10 px-3 py-2.5 text-sm outline-none focus:border-[#536B35]"
                     />
@@ -1063,6 +1208,7 @@ export function ModuleTable({
                       id={field.key}
                       type={field.type ?? "text"}
                       value={String(form[field.key] ?? "")}
+                      placeholder={field.placeholder}
                       onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
                       className="h-11 w-full rounded-xl border border-[#28321F]/10 px-3 text-sm outline-none focus:border-[#536B35]"
                     />

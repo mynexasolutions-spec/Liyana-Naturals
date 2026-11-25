@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Clock, Search, Sparkles, User, X } from "lucide-react";
+import { Clock, Search, Sparkles, User, X } from "lucide-react";
 import { BlogPost } from "@/types";
 import { BlogCard } from "./BlogCard";
 import { Container } from "@/components/ui/Container";
@@ -147,10 +147,9 @@ export function BlogJournalFilter({ posts }: BlogJournalFilterProps) {
 
                     <Link
                       href={`/blog/${featuredPost.slug}`}
-                      className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all duration-300 active:scale-95"
+                      className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-medium shadow-xs hover:shadow-md transition-all duration-300 active:scale-95"
                     >
                       <span>Read Full Guide</span>
-                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </Link>
                   </div>
                 </div>

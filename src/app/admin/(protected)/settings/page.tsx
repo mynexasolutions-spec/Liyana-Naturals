@@ -29,25 +29,6 @@ export default function SettingsPage() {
           { key: "tax_percent", label: "Tax percent", type: "number" },
         ]}
       />
-      <ModuleTable
-        table="site_content"
-        title="Brand, SEO & Policies"
-        filters={[{ key: "section_key", value: "store:settings" }]}
-        searchKeys={["section_key", "title", "subtitle"]}
-        columns={[
-          { key: "title", label: "Configuration" },
-          { key: "section_key", label: "Key" },
-          { key: "is_published", label: "Status", format: "status" },
-        ]}
-        allowCreate={false}
-        emptyFields={[
-          { key: "section_key", label: "Section key", required: true },
-          { key: "title", label: "Title" },
-          { key: "subtitle", label: "Subtitle" },
-          { key: "body", label: "Global settings JSON", type: "json", required: true },
-          { key: "is_published", label: "Published", type: "boolean" },
-        ]}
-      />
     </div>
   );
 }

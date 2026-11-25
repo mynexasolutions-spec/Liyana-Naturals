@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
-  ArrowRight,
   Check,
   CheckCircle2,
   Eye,
@@ -58,13 +57,14 @@ export function AuthPortalClient({
   const [mobile, setMobile] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Feedback State
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Forgot Password Modal State
   const [isForgotOpen, setIsForgotOpen] = useState(false);
@@ -73,6 +73,8 @@ export function AuthPortalClient({
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");
+  const [isResetSubmitting, setIsResetSubmitting] = useState(false);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   const switchMode = (nextMode: "login" | "register") => {
     setMode(nextMode);
@@ -88,8 +90,24 @@ export function AuthPortalClient({
     }
   }, [passwordRecovery]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset_error") !== "1") return;
+
+    setIsForgotOpen(true);
+    setResetError("This password reset link is invalid or has expired. Request a new one.");
+    params.delete("reset_error");
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    );
+  }, []);
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setFormError("");
     setFormSuccess("");
 
@@ -103,18 +121,23 @@ export function AuthPortalClient({
       return;
     }
 
-    const res = await loginUser({
-      email: emailTrimmed,
-      password: loginPassword,
-      rememberMe,
-    });
+    setIsSubmitting(true);
+    try {
+      const res = await loginUser({
+        email: emailTrimmed,
+        password: loginPassword,
+        rememberMe,
+      });
 
-    if (!res.ok) {
-      setFormError(res.error ?? "Unable to sign in. Please try again.");
-      return;
+      if (!res.ok) {
+        setFormError(res.error ?? "Unable to sign in. Please try again.");
+        return;
+      }
+
+      setFormSuccess("Welcome back! You are now signed in.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setFormSuccess("Welcome back! You are now signed in.");
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -138,8 +161,8 @@ export function AuthPortalClient({
       setFormError("Please enter a valid 10-digit mobile number.");
       return;
     }
-    if (registerPassword.length < 6) {
-      setFormError("Password must be at least 6 characters long.");
+    if (registerPassword.length < 8) {
+      setFormError("Password must be at least 8 characters long.");
       return;
     }
     if (registerPassword !== confirmPassword) {
@@ -153,23 +176,34 @@ export function AuthPortalClient({
       return;
     }
 
-    const res = await registerUser({
-      fullName: fullName.trim(),
-      email: registerEmail.trim(),
-      mobile: mobile.trim(),
-      password: registerPassword,
-    });
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await registerUser({
+        fullName: fullName.trim(),
+        email: registerEmail.trim(),
+        mobile: mobile.trim(),
+        password: registerPassword,
+      });
 
-    if (!res.ok) {
-      setFormError(res.error ?? "Unable to create account.");
-      return;
+      if (!res.ok) {
+        setFormError(res.error ?? "Unable to create account.");
+        return;
+      }
+
+      setFormSuccess(
+        res.requiresEmailConfirmation
+          ? "Account created. Check your email to confirm it before logging in."
+          : "Account created successfully! Welcome to Liyana Naturals.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setFormSuccess("Account created successfully! Welcome to Liyana Naturals.");
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isResetSubmitting) return;
     setResetError("");
     setResetMessage("");
 
@@ -181,42 +215,59 @@ export function AuthPortalClient({
       return;
     }
     if (passwordRecovery) {
-      if (resetNewPassword.length < 6) {
-        setResetError("New password must be at least 6 characters long.");
+      if (resetNewPassword.length < 8) {
+        setResetError("New password must be at least 8 characters long.");
         return;
       }
       if (resetNewPassword !== resetConfirmPassword) {
         setResetError("Passwords do not match.");
         return;
       }
-      const res = await updateUserPassword(resetNewPassword);
+      setIsResetSubmitting(true);
+      try {
+        const res = await updateUserPassword(resetNewPassword);
+        if (!res.ok) {
+          setResetError(res.error ?? "Could not update your password.");
+          return;
+        }
+        setResetMessage("Password updated. You can continue shopping.");
+        setResetNewPassword("");
+        setResetConfirmPassword("");
+        const url = new URL(window.location.href);
+        url.searchParams.delete("reset");
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${url.pathname}${url.search}${url.hash}`,
+        );
+        setTimeout(() => {
+          setIsForgotOpen(false);
+          setResetMessage("");
+        }, 1500);
+        return;
+      } finally {
+        setIsResetSubmitting(false);
+      }
+    }
+
+    setIsResetSubmitting(true);
+    try {
+      const res = await resetUserPassword({ email: resetEmail.trim() });
+
       if (!res.ok) {
-        setResetError(res.error ?? "Could not update your password.");
+        setResetError(res.error ?? "Could not reset password.");
         return;
       }
-      setResetMessage("Password updated. You can continue shopping.");
-      setResetNewPassword("");
-      setResetConfirmPassword("");
-      setTimeout(() => {
-        setIsForgotOpen(false);
-        setResetMessage("");
-      }, 1500);
-      return;
-    }
 
-    const res = await resetUserPassword({ email: resetEmail.trim(), newPassword: "" });
-
-    if (!res.ok) {
-      setResetError(res.error ?? "Could not reset password.");
-      return;
-    }
-
-    setLoginEmail(resetEmail.trim());
-    setResetMessage("Check your email for a secure password reset link.");
-    setTimeout(() => {
+      setLoginEmail(resetEmail.trim());
       setIsForgotOpen(false);
-      setResetMessage("");
-    }, 1500);
+      setShowResetConfirmation(true);
+      setTimeout(() => {
+        setShowResetConfirmation(false);
+      }, 5000);
+    } finally {
+      setIsResetSubmitting(false);
+    }
   };
 
   const userInitials = currentUser?.fullName
@@ -414,10 +465,9 @@ export function AuthPortalClient({
               <div className="flex flex-col sm:flex-row gap-2 pt-1">
                 <Link
                   href="/shop"
-                  className="flex-1 py-2.5 px-4 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors shadow-xs"
+                  className="flex-1 py-2.5 px-3 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-colors shadow-xs"
                 >
                   <span>Continue Shopping</span>
-                  <ArrowRight className="w-4 h-4" />
                 </Link>
                 <button
                   type="button"
@@ -425,9 +475,9 @@ export function AuthPortalClient({
                     logoutUser();
                     setFormSuccess("");
                   }}
-                  className="py-2.5 px-4 rounded-full border border-[#28321F]/15 bg-white hover:bg-[#FFF5F2] text-[#28321F] hover:text-[#C2652B] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="relative py-2.5 px-4 rounded-full border border-[#28321F]/15 bg-white hover:bg-[#FFF5F2] text-[#28321F] hover:text-[#C2652B] text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="absolute left-4 w-4 h-4" />
                   <span>Sign Out</span>
                 </button>
               </div>
@@ -480,6 +530,7 @@ export function AuthPortalClient({
                     placeholder="Email Address"
                     aria-label="Email Address"
                     autoComplete="email"
+                    required
                     className="w-full pl-10 pr-4 py-2 sm:py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] placeholder:text-[#777968] focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
                   />
                 </div>
@@ -497,6 +548,7 @@ export function AuthPortalClient({
                     placeholder="Password"
                     aria-label="Password"
                     autoComplete="current-password"
+                    required
                     className="w-full pl-10 pr-10 py-2 sm:py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] placeholder:text-[#777968] focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
                   />
                   <button
@@ -554,10 +606,10 @@ export function AuthPortalClient({
                 {/* Login Submit Button */}
                 <button
                   type="submit"
-                  className="w-full py-2.5 sm:py-3 px-5 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 sm:py-3 px-5 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-xs sm:text-sm font-semibold inline-flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
                 >
-                  <span>Login</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{isSubmitting ? "Signing in..." : "Login"}</span>
                 </button>
               </form>
 
@@ -597,6 +649,16 @@ export function AuthPortalClient({
                 </div>
               )}
 
+              {formSuccess && (
+                <div
+                  role="status"
+                  className="mb-2.5 px-3 py-2 rounded-xl bg-[#EAF1DF] border border-[#536B35]/30 text-[#263D18] text-xs font-medium flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#3C6E26] shrink-0" />
+                  <span>{formSuccess}</span>
+                </div>
+              )}
+
               <form onSubmit={handleRegisterSubmit} className="space-y-2">
                 {/* Full Name */}
                 <div className="relative">
@@ -611,6 +673,7 @@ export function AuthPortalClient({
                     placeholder="Full Name"
                     aria-label="Full Name"
                     autoComplete="name"
+                    required
                     className="w-full pl-10 pr-3.5 py-2 sm:py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] placeholder:text-[#777968] focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
                   />
                 </div>
@@ -629,6 +692,7 @@ export function AuthPortalClient({
                       placeholder="Email Address"
                       aria-label="Email Address"
                       autoComplete="email"
+                      required
                       className="w-full pl-10 pr-3 py-2 sm:py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] placeholder:text-[#777968] focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
                     />
                   </div>
@@ -645,6 +709,7 @@ export function AuthPortalClient({
                       placeholder="Mobile Number"
                       aria-label="Mobile Number"
                       autoComplete="tel"
+                      required
                       className="w-full pl-10 pr-3 py-2 sm:py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] placeholder:text-[#777968] focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
                     />
                   </div>
@@ -664,6 +729,8 @@ export function AuthPortalClient({
                       placeholder="Password"
                       aria-label="Password"
                       autoComplete="new-password"
+                      minLength={8}
+                      required
                       className="w-full pl-10 pr-9 py-2 sm:py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] placeholder:text-[#777968] focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
                     />
                     <button
@@ -694,6 +761,8 @@ export function AuthPortalClient({
                       placeholder="Confirm Password"
                       aria-label="Confirm Password"
                       autoComplete="new-password"
+                      minLength={8}
+                      required
                       className="w-full pl-10 pr-9 py-2 sm:py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] placeholder:text-[#777968] focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
                     />
                     <button
@@ -721,6 +790,7 @@ export function AuthPortalClient({
                     type="checkbox"
                     checked={agreeTerms}
                     onChange={(e) => setAgreeTerms(e.target.checked)}
+                    required
                     className="sr-only peer"
                   />
                   <span
@@ -754,10 +824,10 @@ export function AuthPortalClient({
                 {/* Register Submit Button */}
                 <button
                   type="submit"
-                  className="w-full py-2.5 sm:py-3 px-5 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 sm:py-3 px-5 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-xs sm:text-sm font-semibold inline-flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
                 >
-                  <span>Register</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{isSubmitting ? "Creating account..." : "Register"}</span>
                 </button>
               </form>
 
@@ -827,12 +897,13 @@ export function AuthPortalClient({
               {!passwordRecovery && (
                 <div className="relative">
                   <Mail className="w-4 h-4 text-[#536B35] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="Registered Email Address"
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="Registered Email Address"
+                      required
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
                   />
                 </div>
               )}
@@ -845,7 +916,9 @@ export function AuthPortalClient({
                       type="password"
                       value={resetNewPassword}
                       onChange={(e) => setResetNewPassword(e.target.value)}
-                      placeholder="New Password (min 6 characters)"
+                      placeholder="New Password (min 8 characters)"
+                      minLength={8}
+                      required
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
                     />
                   </div>
@@ -856,6 +929,8 @@ export function AuthPortalClient({
                       value={resetConfirmPassword}
                       onChange={(e) => setResetConfirmPassword(e.target.value)}
                       placeholder="Confirm New Password"
+                      minLength={8}
+                      required
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FBF7EE] border border-[#28321F]/15 text-xs sm:text-sm text-[#28321F] focus:outline-none focus:border-[#536B35]"
                     />
                   </div>
@@ -864,11 +939,47 @@ export function AuthPortalClient({
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                disabled={isResetSubmitting}
+                aria-busy={isResetSubmitting}
+                className="w-full py-2.5 px-4 rounded-full bg-[#263D18] hover:bg-[#1D3214] disabled:opacity-60 disabled:cursor-not-allowed text-[#FBF7EE] text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
               >
-                {passwordRecovery ? "Update Password" : "Send Reset Link"}
+                {isResetSubmitting
+                  ? passwordRecovery
+                    ? "Updating..."
+                    : "Sending..."
+                  : passwordRecovery
+                    ? "Update Password"
+                    : "Send Reset Link"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showResetConfirmation && (
+        <div
+          className="fixed right-4 bottom-4 z-[60] w-[calc(100%-2rem)] max-w-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-start gap-3 rounded-2xl border border-[#536B35]/25 bg-white p-4 shadow-2xl">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#3C6E26]" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-[#263D18]">
+                Password reset email sent
+              </p>
+              <p className="mt-1 text-xs text-[#777968]">
+                Check your inbox and follow the secure link to choose a new password.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowResetConfirmation(false)}
+              aria-label="Dismiss password reset confirmation"
+              className="shrink-0 p-1 text-[#777968] hover:text-[#28321F]"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}

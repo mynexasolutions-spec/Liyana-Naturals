@@ -119,10 +119,9 @@ export function WishlistClient() {
             </p>
             <Link
               href="/shop"
-              className="group inline-flex items-center justify-center gap-2 px-6 py-2.5 sm:py-3 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-95"
+              className="inline-flex items-center justify-center px-5 py-2.5 sm:py-3 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-95"
             >
               <span>Explore Shop</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
         )}

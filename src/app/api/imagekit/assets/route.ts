@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getAdminSession } from "@/lib/supabase/admin-auth";
+import { renderableImageUrl } from "@/lib/media/image-url";
 
 type AssetBody = {
   fileId?: unknown;
@@ -14,6 +16,7 @@ type AssetBody = {
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const supabase = createSupabaseAdminClient();
 
   let body: AssetBody;
   try {
@@ -22,15 +25,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid media metadata." }, { status: 400 });
   }
 
+  const normalizedUrl = renderableImageUrl(body.url);
   if (
     typeof body.fileId !== "string" ||
     typeof body.name !== "string" ||
-    typeof body.url !== "string"
+    !normalizedUrl ||
+    !normalizedUrl.startsWith("http")
   ) {
     return NextResponse.json({ error: "fileId, name, and url are required." }, { status: 400 });
   }
 
-  const { data: existingAsset, error: lookupError } = await session.supabase
+  const { data: existingAsset, error: lookupError } = await supabase
     .from("media_assets")
     .select("id")
     .eq("imagekit_file_id", body.fileId)
@@ -39,10 +44,10 @@ export async function POST(request: Request) {
   if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
   if (existingAsset) return NextResponse.json({ ok: true, existing: true });
 
-  const { error } = await session.supabase.from("media_assets").insert({
+  const { error } = await supabase.from("media_assets").insert({
     imagekit_file_id: body.fileId,
     name: body.name,
-    url: body.url,
+    url: normalizedUrl,
     thumbnail_url: typeof body.thumbnailUrl === "string" ? body.thumbnailUrl : null,
     mime: typeof body.mime === "string" ? body.mime : null,
     size_bytes: typeof body.sizeBytes === "number" ? body.sizeBytes : null,

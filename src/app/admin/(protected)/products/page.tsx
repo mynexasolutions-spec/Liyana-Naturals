@@ -1,7 +1,7 @@
 import { ModuleTable } from "@/components/admin/ModuleTable";
 
 export default function ProductsPage() {
-  return <ModuleTable table="products" title="Products" searchKeys={["name", "slug", "tagline"]} columns={[
+  return <ModuleTable table="products" title="Products" mutationEndpoint="/api/admin/products" searchKeys={["name", "slug", "tagline"]} columns={[
     { key: "images", label: "Image", format: "image" },
     { key: "name", label: "Product", format: "product" },
     { key: "price", label: "Price", format: "currency" },
@@ -25,8 +25,8 @@ export default function ProductsPage() {
       { label: "New", value: "New" }, { label: "Organic", value: "Organic" },
       { label: "Award Winner", value: "Award Winner" }, { label: "Sale", value: "Sale" },
     ] },
-    { key: "ingredients", label: "Ingredients JSON", type: "json" },
-    { key: "benefits", label: "Benefits JSON", type: "json" },
+    { key: "ingredients", label: "Ingredients", type: "textarea", valueFormat: "string-array", placeholder: "e.g. Aloe vera, Vitamin E, Shea butter" },
+    { key: "benefits", label: "Benefits", type: "textarea", valueFormat: "string-array", placeholder: "e.g. Hydrates skin, Gentle cleansing" },
     { key: "how_to_use", label: "How to use", type: "textarea" },
     { key: "is_featured", label: "Featured", type: "boolean", control: "toggle", defaultValue: false },
     { key: "is_best_seller", label: "Best seller", type: "boolean", control: "toggle", defaultValue: false },

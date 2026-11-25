@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   AlertCircle,
-  ArrowRight,
   Building2,
   Check,
   CheckCircle2,
@@ -540,10 +539,9 @@ export function CheckoutClient() {
                 </button>
                 <Link
                   href="/shop"
-                  className="py-2.5 px-5 rounded-xl bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors"
+                  className="py-2.5 px-5 rounded-xl bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold inline-flex items-center transition-colors"
                 >
                   <span>Continue Shopping</span>
-                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>
@@ -1281,11 +1279,10 @@ export function CheckoutClient() {
                 <button
                   type="submit"
                   disabled={isPlacingOrder}
-                  className="w-full py-3.5 px-6 rounded-xl bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-sm sm:text-base font-semibold inline-flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
+                  className="relative w-full py-3.5 px-6 rounded-xl bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-sm sm:text-base font-semibold inline-flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
                 >
-                  <ShieldCheck className="w-4 h-4" />
+                  <ShieldCheck className="absolute left-5 w-4 h-4" />
                   <span>{isPlacingOrder ? "Placing Order…" : "Place Order"}</span>
-                  <ArrowRight className="w-4 h-4" />
                 </button>
                 <p className="font-sans text-[11px] text-[#777968] inline-flex items-center justify-center gap-1.5">
                   <Lock className="w-3 h-3 text-[#536B35]" />

@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, Sparkles } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail, Sparkles } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 
 export default function AdminLoginPage() {
@@ -131,10 +131,9 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#263D18] text-sm font-bold tracking-[0.12em] text-white shadow-[0_10px_22px_rgba(38,61,24,0.18)] transition hover:bg-[#1D3214] hover:shadow-[0_12px_24px_rgba(38,61,24,0.24)] disabled:cursor-wait disabled:opacity-70"
+              className="flex h-14 w-full items-center justify-center rounded-xl bg-[#263D18] text-sm font-bold tracking-[0.12em] text-white shadow-[0_10px_22px_rgba(38,61,24,0.18)] transition hover:bg-[#1D3214] hover:shadow-[0_12px_24px_rgba(38,61,24,0.24)] disabled:cursor-wait disabled:opacity-70"
             >
               {loading ? "SIGNING IN..." : "LOG IN"}
-              {!loading && <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" aria-hidden="true" />}
             </button>
           </form>
 

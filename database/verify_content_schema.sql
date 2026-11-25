@@ -15,6 +15,8 @@ select
   id,
   section_key,
   title,
+  slug,
+  is_featured,
   is_published,
   created_at,
   updated_at

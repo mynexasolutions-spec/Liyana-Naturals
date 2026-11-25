@@ -1,7 +1,7 @@
 import { ModuleTable } from "@/components/admin/ModuleTable";
 
 export default function CategoriesPage() {
-  return <ModuleTable table="categories" title="Categories" searchKeys={["name", "slug"]} columns={[
+  return <ModuleTable table="categories" title="Categories" mutationEndpoint="/api/admin/categories" searchKeys={["name", "slug"]} columns={[
     { key: "image_url", label: "Image", format: "image" },
     { key: "name", label: "Category" },
     { key: "slug", label: "Slug" },

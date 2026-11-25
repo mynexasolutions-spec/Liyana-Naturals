@@ -4,9 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
-  ChevronLeft,
   CircleHelp,
-  FileText,
   LayoutDashboard,
   Leaf,
   LogOut,
@@ -32,7 +30,6 @@ const navigation = [
   { label: "Reviews", href: "/admin/reviews", icon: Star },
   { label: "Inquiries", href: "/admin/inquiries", icon: CircleHelp },
   { label: "Homepage", href: "/admin/banners", icon: Megaphone },
-  { label: "Content", href: "/admin/content", icon: FileText },
   { label: "Blogs", href: "/admin/blogs", icon: BookOpen },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
@@ -136,9 +133,8 @@ export function AdminShell({
               </p>
             </div>
           </div>
-          <Link href="/" className="flex h-10 items-center gap-2 rounded-full border border-[#28321F]/10 bg-white px-4 text-sm font-medium hover:border-[#536B35]/40">
-            <ChevronLeft className="size-4" />
-            <span className="hidden sm:inline">View store</span>
+          <Link href="/" className="flex h-10 items-center rounded-full border border-[#28321F]/10 bg-white px-3 text-sm font-medium hover:border-[#536B35]/40">
+            <span>View store</span>
           </Link>
         </header>
         <main className="p-4 md:p-7">{children}</main>

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { BlogPost, Product, ProductCategory } from "@/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { renderableImageUrl } from "@/lib/media/image-url";
 
 type RelatedCategory = { name?: string; slug?: string } | null;
 
@@ -44,6 +45,19 @@ type ContentRow = {
   subtitle: string | null;
   body: unknown;
   is_published: boolean;
+  slug: string | null;
+  excerpt: string | null;
+  category: string | null;
+  read_time: string | null;
+  published_at: string | null;
+  cover_image: string | null;
+  tags: unknown;
+  key_takeaways: unknown;
+  content: string | null;
+  author_name: string | null;
+  author_role: string | null;
+  author_bio: string | null;
+  is_featured: boolean;
 };
 
 export type StorefrontBanner = {
@@ -140,19 +154,32 @@ function mapProduct(row: StoreProductRow): Product {
 
 function mapBlog(row: ContentRow): BlogPost | null {
   if (!row.body || typeof row.body !== "object") return null;
-  const body = row.body as Partial<BlogPost>;
-  if (typeof body.slug !== "string" || typeof body.title !== "string") return null;
+  const body = row.body as Partial<BlogPost> & Record<string, unknown>;
+  const slug = row.slug ?? (typeof body.slug === "string" ? body.slug : null);
+  const title = row.title ?? (typeof body.title === "string" ? body.title : null);
+  if (!slug || !title) return null;
+  const author = body.author && typeof body.author === "object" ? body.author as Record<string, unknown> : {};
   return {
     ...body,
     id: typeof body.id === "string" ? body.id : row.section_key,
-    title: body.title,
-    slug: body.slug,
-    excerpt: typeof body.excerpt === "string" ? body.excerpt : row.subtitle ?? "",
-    coverImage: typeof body.coverImage === "string" ? body.coverImage : "",
-    category: typeof body.category === "string" ? body.category : "Journal",
-    readTime: typeof body.readTime === "string" ? body.readTime : "",
-    publishedAt: typeof body.publishedAt === "string" ? body.publishedAt : "",
-    author: body.author ?? { name: "Liyana Naturals" },
+    title,
+    slug,
+    subtitle: row.subtitle ?? (typeof body.subtitle === "string" ? body.subtitle : undefined),
+    excerpt: row.excerpt ?? (typeof body.excerpt === "string" ? body.excerpt : row.subtitle ?? ""),
+    coverImage: row.cover_image ?? (typeof body.coverImage === "string" ? body.coverImage : ""),
+    category: row.category ?? (typeof body.category === "string" ? body.category : "Journal"),
+    readTime: row.read_time ?? (typeof body.readTime === "string" ? body.readTime : ""),
+    publishedAt: row.published_at ?? (typeof body.publishedAt === "string" ? body.publishedAt : ""),
+    featured: row.is_featured ?? Boolean(body.featured),
+    tags: stringArray(row.tags ?? body.tags),
+    keyTakeaways: stringArray(row.key_takeaways ?? body.keyTakeaways),
+    content: row.content ?? (typeof body.content === "string" ? body.content : undefined),
+    author: {
+      name: row.author_name ?? (typeof author.name === "string" ? author.name : "Liyana Naturals"),
+      role: row.author_role ?? (typeof author.role === "string" ? author.role : undefined),
+      bio: row.author_bio ?? (typeof author.bio === "string" ? author.bio : undefined),
+      avatar: typeof author.avatar === "string" ? author.avatar : undefined,
+    },
   } as BlogPost;
 }
 
@@ -194,7 +221,12 @@ export async function getStorefrontBanners(): Promise<StorefrontBanner[]> {
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
   if (error) throw new Error(`Homepage banners could not be loaded: ${error.message}`);
-  return (data as StorefrontBanner[] | null) ?? [];
+  return ((data as StorefrontBanner[] | null) ?? []).map((banner) => ({
+    ...banner,
+    image_url: renderableImageUrl(banner.image_url),
+    desktop_image_url: renderableImageUrl(banner.desktop_image_url),
+    mobile_image_url: renderableImageUrl(banner.mobile_image_url),
+  }));
 }
 
 export async function getStorefrontReviews(productId?: string): Promise<StorefrontReview[]> {
@@ -226,7 +258,7 @@ export async function getStorefrontBlogs(): Promise<BlogPost[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("site_content")
-    .select("section_key,title,subtitle,body,is_published")
+    .select("section_key,title,subtitle,body,is_published,slug,excerpt,category,read_time,published_at,cover_image,tags,key_takeaways,content,author_name,author_role,author_bio,is_featured")
     .like("section_key", "blog:%")
     .eq("is_published", true)
     .order("updated_at", { ascending: false });

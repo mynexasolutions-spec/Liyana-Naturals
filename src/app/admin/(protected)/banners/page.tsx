@@ -7,6 +7,7 @@ export default function BannersPage() {
     <ModuleTable
       table="homepage_banners"
       title="Homepage Banners"
+      mutationEndpoint="/api/admin/banners"
       searchKeys={["title", "subtitle", "link_url"]}
       columns={[
         { key: "title", label: "Banner" },

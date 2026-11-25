@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { ShopCatalog } from "@/components/shop/ShopCatalog";
 import { Newsletter } from "@/components/home/Newsletter";
@@ -118,10 +117,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
             <a
               href="#shop-catalog"
-              className="group inline-flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold shadow-xs hover:shadow-md transition-all duration-300 active:scale-95"
+              className="inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold shadow-xs hover:shadow-md transition-all duration-300 active:scale-95"
             >
               <span>Shop All Products</span>
-              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
             </a>
           </div>
         </div>
