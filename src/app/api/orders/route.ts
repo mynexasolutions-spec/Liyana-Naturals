@@ -156,7 +156,7 @@ export async function POST(request: Request) {
           .eq("id", restored.id);
       }
       await admin.from("orders").delete().eq("id", order.id);
-      return NextResponse.json({ error: "Inventory changed while placing the order. Please try again." }, { status: 409 });
+      return NextResponse.json({ error: "Stock changed while placing the order. Please try again." }, { status: 409 });
     }
     decremented.push({ id: productId, stock: product.stock_quantity });
   }

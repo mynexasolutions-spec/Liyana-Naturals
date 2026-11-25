@@ -35,5 +35,25 @@ result.blogs = {
   ),
 };
 
+const products = await admin.from("products").select("slug,images");
+const productImages = (products.data ?? []).flatMap((product) =>
+  Array.isArray(product.images) ? product.images : [],
+);
+result.productImages = {
+  products: products.data?.length ?? 0,
+  withImages: (products.data ?? []).filter((product) => Array.isArray(product.images) && product.images.length > 0).length,
+  totalImages: productImages.length,
+  allImageKit: productImages.every(
+    (image) =>
+      image &&
+      typeof image === "object" &&
+      typeof (image as { src?: unknown }).src === "string" &&
+      (image as { src: string }).src.includes("imagekit"),
+  ),
+  allHaveFileIds: productImages.every(
+    (image) => image && typeof image === "object" && typeof (image as { fileId?: unknown }).fileId === "string",
+  ),
+};
+
 console.log(JSON.stringify(result, null, 2));
 await client.auth.signOut();

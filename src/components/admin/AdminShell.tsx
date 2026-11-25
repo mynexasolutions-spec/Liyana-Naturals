@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Boxes,
   BookOpen,
   ChevronLeft,
   CircleHelp,
+  FileText,
   LayoutDashboard,
   Leaf,
   LogOut,
@@ -26,14 +26,13 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 const navigation = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Products", href: "/admin/products", icon: Package },
-  { label: "Inventory", href: "/admin/inventory", icon: Boxes },
   { label: "Categories", href: "/admin/categories", icon: Tags },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Reviews", href: "/admin/reviews", icon: Star },
   { label: "Inquiries", href: "/admin/inquiries", icon: CircleHelp },
   { label: "Homepage", href: "/admin/banners", icon: Megaphone },
-  { label: "Content", href: "/admin/content", icon: Boxes },
+  { label: "Content", href: "/admin/content", icon: FileText },
   { label: "Blogs", href: "/admin/blogs", icon: BookOpen },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];

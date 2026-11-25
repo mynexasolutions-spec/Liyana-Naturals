@@ -30,6 +30,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "fileId, name, and url are required." }, { status: 400 });
   }
 
+  const { data: existingAsset, error: lookupError } = await session.supabase
+    .from("media_assets")
+    .select("id")
+    .eq("imagekit_file_id", body.fileId)
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  if (existingAsset) return NextResponse.json({ ok: true, existing: true });
+
   const { error } = await session.supabase.from("media_assets").insert({
     imagekit_file_id: body.fileId,
     name: body.name,

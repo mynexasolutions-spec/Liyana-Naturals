@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint src",
     "seed:supabase": "node --experimental-strip-types scripts/seed-supabase.mts",
+    "migrate:product-images": "node --experimental-strip-types scripts/migrate-product-images.mts",
     "verify:supabase": "node --experimental-strip-types scripts/verify-supabase.mts"
   },
   "dependencies": {

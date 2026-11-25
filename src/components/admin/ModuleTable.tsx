@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ArrowDownUp, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDownUp, CheckCircle2, ImageOff, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Row = Record<string, unknown> & { id: string };
@@ -21,17 +21,29 @@ export interface ModuleField {
   key: string;
   label: string;
   type?: ModuleFieldType;
+  control?: "toggle";
+  defaultValue?: string | boolean;
   required?: boolean;
   options?: { label: string; value: string }[];
   assetIdKey?: string;
   folder?: string;
+  syncKeys?: { url?: string; fileId?: string };
+  imageValidation?: {
+    allowedMimeTypes?: string[];
+    maxBytes?: number;
+    minWidth?: number;
+    minHeight?: number;
+    minAspectRatio?: number;
+    maxAspectRatio?: number;
+    helpText?: string;
+  };
   relation?: { table: string; labelKey: string; valueKey?: string };
 }
 
 export interface ModuleColumn {
   key: string;
   label: string;
-  format?: "product" | "currency" | "status";
+  format?: "product" | "currency" | "status" | "image" | "toggle";
 }
 
 interface ModuleTableProps {
@@ -48,7 +60,103 @@ interface ModuleTableProps {
 const PAGE_SIZE = 10;
 const EMPTY_FILTERS: NonNullable<ModuleTableProps["filters"]> = [];
 
-function renderCell(row: Row, column: ModuleColumn) {
+function singularTitle(title: string): string {
+  if (title === "Categories") return "Category";
+  return title.endsWith("s") ? title.slice(0, -1) : title;
+}
+
+type ImageEntry = {
+  src: string;
+  alt?: string;
+  fileId?: string;
+};
+
+function imageList(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function imageEntries(value: unknown): ImageEntry[] {
+  return imageList(value).flatMap((image) => {
+    if (typeof image === "string" && image.trim()) return [{ src: image.trim() }];
+    if (!image || typeof image !== "object") return [];
+
+    const record = image as Record<string, unknown>;
+    const src = typeof record.src === "string" && record.src.trim()
+      ? record.src.trim()
+      : typeof record.url === "string" && record.url.trim()
+        ? record.url.trim()
+        : null;
+    if (!src) return [];
+
+    return [{
+      src,
+      ...(typeof record.alt === "string" ? { alt: record.alt } : {}),
+      ...(typeof record.fileId === "string" ? { fileId: record.fileId } : {}),
+    }];
+  });
+}
+
+function imageSource(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return imageEntries(parsed)[0]?.src ?? null;
+    } catch {
+      return value.trim();
+    }
+  }
+  return imageEntries(value)[0]?.src ?? null;
+}
+
+function ImagePreview({
+  src,
+  alt,
+  className,
+  width,
+  height,
+}: {
+  src: string;
+  alt: string;
+  className: string;
+  width: number;
+  height: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div role="img" aria-label={`${alt} unavailable`} className={`${className} grid place-items-center text-[#777968]`}>
+        <ImageOff className="size-4" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      unoptimized
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+}
+
+function renderCell(
+  row: Row,
+  column: ModuleColumn,
+  onToggle: (row: Row, key: string) => void,
+  togglingKey: string | null,
+) {
   const value = row[column.key];
 
   if (column.format === "product") {
@@ -63,6 +171,54 @@ function renderCell(row: Row, column: ModuleColumn) {
   if (column.format === "currency") {
     const amount = Number(value);
     return <span>₹{Number.isFinite(amount) ? amount.toLocaleString("en-IN") : "0"}</span>;
+  }
+
+  if (column.format === "image") {
+    const src = imageSource(value);
+    if (!src) {
+      return (
+        <div
+          role="img"
+          aria-label={`No ${column.label.toLowerCase()} available`}
+          className="grid h-14 w-24 place-items-center rounded-lg border border-dashed border-[#28321F]/12 bg-[#FBF7EE] text-[#777968]"
+        >
+          <ImageOff className="size-4" aria-hidden="true" />
+        </div>
+      );
+    }
+
+    return (
+      <ImagePreview
+        src={src}
+        alt={String(row.name ?? row.slug ?? column.label)}
+        width={128}
+        height={72}
+        className="h-14 w-24 rounded-lg border border-[#28321F]/8 bg-[#FBF7EE] object-contain p-1"
+      />
+    );
+  }
+
+  if (column.format === "toggle") {
+    const enabled = Boolean(value);
+    const key = `${row.id}:${column.key}`;
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={`${column.label}: ${enabled ? "enabled" : "disabled"}`}
+        disabled={togglingKey === key}
+        onClick={() => onToggle(row, column.key)}
+        className={`inline-flex min-w-24 items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
+          enabled
+            ? "border-[#536B35]/20 bg-[#EAF1DF] text-[#263D18]"
+            : "border-[#28321F]/12 bg-[#FBF7EE] text-[#777968]"
+        }`}
+      >
+        <span className={`size-1.5 rounded-full ${enabled ? "bg-[#3C6E26]" : "bg-[#A4A79A]"}`} aria-hidden="true" />
+        {enabled ? "On" : "Off"}
+      </button>
+    );
   }
 
   if (column.format === "status") {
@@ -102,7 +258,10 @@ function inputValue(value: unknown, type?: ModuleFieldType): string | boolean {
       ? "{}"
       : JSON.stringify(value, null, 2);
   }
-  if (type === "image" && Array.isArray(value)) return JSON.stringify(value, null, 2);
+  if (type === "image" && (Array.isArray(value) || typeof value === "string")) {
+    const entries = imageList(value);
+    return entries.length > 0 ? JSON.stringify(entries, null, 2) : String(value ?? "[]");
+  }
   return value === undefined || value === null ? "" : String(value);
 }
 
@@ -161,9 +320,66 @@ function buildPayload(
     if (field.assetIdKey && form[field.assetIdKey]) {
       payload[field.assetIdKey] = form[field.assetIdKey];
     }
+    if (field.syncKeys?.url) payload[field.syncKeys.url] = payload[field.key];
+    if (field.syncKeys?.fileId && field.assetIdKey && form[field.assetIdKey]) {
+      payload[field.syncKeys.fileId] = form[field.assetIdKey];
+    }
   }
 
   return { payload };
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function validateImageFile(file: File, field: ModuleField): Promise<void> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error(`${field.label} must be an image file.`);
+  }
+
+  const validation = field.imageValidation;
+  if (!validation) return;
+  if (validation.allowedMimeTypes && !validation.allowedMimeTypes.includes(file.type)) {
+    throw new Error(`${field.label} must be a JPG, PNG, or WebP image.`);
+  }
+  if (validation.maxBytes && file.size > validation.maxBytes) {
+    throw new Error(`${field.label} must be smaller than ${formatBytes(validation.maxBytes)}.`);
+  }
+
+  const needsDimensions = Boolean(
+    validation.minWidth ||
+      validation.minHeight ||
+      validation.minAspectRatio ||
+      validation.maxAspectRatio,
+  );
+  if (!needsDimensions) return;
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const preview = new window.Image();
+      preview.onload = () => resolve({ width: preview.naturalWidth, height: preview.naturalHeight });
+      preview.onerror = () => reject(new Error(`${field.label} could not be read. Choose another image.`));
+      preview.src = objectUrl;
+    });
+    const aspectRatio = dimensions.width / dimensions.height;
+    if (validation.minWidth && dimensions.width < validation.minWidth) {
+      throw new Error(`${field.label} must be at least ${validation.minWidth}px wide.`);
+    }
+    if (validation.minHeight && dimensions.height < validation.minHeight) {
+      throw new Error(`${field.label} must be at least ${validation.minHeight}px tall.`);
+    }
+    if (validation.minAspectRatio && aspectRatio < validation.minAspectRatio) {
+      throw new Error(`${field.label} has the wrong shape for this screen.`);
+    }
+    if (validation.maxAspectRatio && aspectRatio > validation.maxAspectRatio) {
+      throw new Error(`${field.label} has the wrong shape for this screen.`);
+    }
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export function ModuleTable({
@@ -185,11 +401,14 @@ export function ModuleTable({
   const [editing, setEditing] = useState<Row | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({});
+  const [pendingUploadedIds, setPendingUploadedIds] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [sortKey, setSortKey] = useState(columns[0]?.key ?? orderBy);
   const [ascending, setAscending] = useState(false);
   const [page, setPage] = useState(1);
   const [relationOptions, setRelationOptions] = useState<Record<string, { label: string; value: string }[]>>({});
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -279,29 +498,71 @@ export function ModuleTable({
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  function closeEditor() {
+  useEffect(() => {
+    if (!successMessage) return;
+    const timeout = window.setTimeout(() => setSuccessMessage(""), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [successMessage]);
+
+  async function toggleRowField(row: Row, key: string) {
+    const nextValue = !Boolean(row[key]);
+    const toggleKey = `${row.id}:${key}`;
+    setError("");
+    setTogglingKey(toggleKey);
+    setRows((current) => current.map((item) => item.id === row.id ? { ...item, [key]: nextValue } : item));
+
+    const { error: updateError } = await supabase
+      .from(table)
+      .update({ [key]: nextValue })
+      .eq("id", row.id);
+    await load();
+    if (updateError) {
+      setError(updateError.message);
+      setSuccessMessage("");
+    } else {
+      const fieldLabel = key
+        .replace(/^is_/, "")
+        .replaceAll("_", " ");
+      setSuccessMessage(`${singularTitle(title)} ${fieldLabel} updated successfully.`);
+    }
+    setTogglingKey(null);
+  }
+
+  async function closeEditor() {
     if (saving) return;
+    const uploadedIds = pendingUploadedIds;
+    setPendingUploadedIds([]);
     setCreating(false);
     setEditing(null);
     setError("");
+    for (const fileId of uploadedIds) {
+      try {
+        await deleteImage(fileId);
+      } catch (cleanupError) {
+        setError(cleanupError instanceof Error ? cleanupError.message : "Uploaded image cleanup failed.");
+      }
+    }
   }
 
   function openCreate() {
     setEditing(null);
+    setPendingUploadedIds([]);
     setForm(
-      Object.fromEntries(
-        emptyFields.flatMap((field) => [
-          [field.key, field.type === "boolean" ? false : field.type === "json" || field.type === "image" ? "[]" : ""],
+        Object.fromEntries(
+          emptyFields.flatMap((field) => [
+          [field.key, field.defaultValue ?? (field.type === "boolean" ? false : field.type === "json" || field.type === "image" ? "[]" : "")],
           ...(field.assetIdKey ? [[field.assetIdKey, ""]] : []),
         ]),
       ),
     );
     setError("");
+    setSuccessMessage("");
     setCreating(true);
   }
 
   function openEdit(row: Row) {
     setCreating(false);
+    setPendingUploadedIds([]);
     setEditing(row);
     setForm(
       Object.fromEntries(
@@ -312,12 +573,14 @@ export function ModuleTable({
       ),
     );
     setError("");
+    setSuccessMessage("");
   }
 
   async function uploadImage(field: ModuleField, file: File) {
     setError("");
     setUploadingKey(field.key);
     try {
+      await validateImageFile(file, field);
       const authResponse = await fetch(
         `/api/imagekit/auth?folder=${encodeURIComponent(field.folder ?? "/liyana-naturals")}`,
       );
@@ -356,8 +619,16 @@ export function ModuleTable({
         }),
       });
       const asset = await assetResponse.json();
-      if (!assetResponse.ok) throw new Error(asset.error ?? "Image metadata could not be saved.");
+      if (!assetResponse.ok) {
+        try {
+          await deleteImage(upload.fileId);
+        } catch {
+          // Keep the metadata error visible; the orphaned upload can be removed from ImageKit.
+        }
+        throw new Error(asset.error ?? "Image metadata could not be saved.");
+      }
 
+      setPendingUploadedIds((current) => [...new Set([...current, upload.fileId])]);
       setForm((current) => {
         if (field.assetIdKey) {
           return { ...current, [field.key]: upload.url, [field.assetIdKey]: upload.fileId };
@@ -374,7 +645,12 @@ export function ModuleTable({
           ...current,
           [field.key]: JSON.stringify([
             ...currentImages,
-            { src: upload.url, alt: upload.name ?? file.name, fileId: upload.fileId },
+            {
+              src: upload.url,
+              url: upload.url,
+              alt: upload.name ?? file.name,
+              fileId: upload.fileId,
+            },
           ]),
         };
       });
@@ -402,9 +678,9 @@ export function ModuleTable({
       if (field.assetIdKey && typeof row[field.assetIdKey] === "string") {
         return [row[field.assetIdKey] as string];
       }
-      if (field.type === "image" && !field.assetIdKey && Array.isArray(row[field.key])) {
-        return (row[field.key] as { fileId?: unknown }[]).flatMap((image) =>
-          typeof image.fileId === "string" ? [image.fileId] : [],
+      if (field.type === "image" && !field.assetIdKey) {
+        return imageEntries(row[field.key]).flatMap((image) =>
+          image.fileId ? [image.fileId] : [],
         );
       }
       return [];
@@ -412,9 +688,21 @@ export function ModuleTable({
     return [...new Set(ids)];
   }
 
+  function removeImage(field: ModuleField, index: number) {
+    setForm((current) => ({
+      ...current,
+      [field.key]: JSON.stringify(
+        imageList(current[field.key]).filter((_, imageIndex) => imageIndex !== index),
+        null,
+        2,
+      ),
+    }));
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
     setError("");
+    setSuccessMessage("");
     const result = buildPayload(form, emptyFields);
     if (result.error || !result.payload) {
       setError(result.error ?? "Enter valid values before saving.");
@@ -429,21 +717,45 @@ export function ModuleTable({
 
     if (mutationError) {
       setError(mutationError.message);
+      for (const fileId of pendingUploadedIds) {
+        try {
+          await deleteImage(fileId);
+        } catch {
+          // Keep the original database error visible; cleanup can be retried from ImageKit.
+        }
+      }
+      setPendingUploadedIds([]);
     } else {
+      const oldIds = editing ? fileIdsForRow(editing) : [];
+      const newIds = fileIdsForRow(result.payload as Row);
+      const cleanupIds = [...new Set([...oldIds, ...pendingUploadedIds])].filter((id) => !newIds.includes(id));
+      let cleanupFailed = false;
       if (editing) {
-        const oldIds = fileIdsForRow(editing);
-        const newIds = fileIdsForRow(result.payload as Row);
-        for (const fileId of oldIds.filter((id) => !newIds.includes(id))) {
+        for (const fileId of cleanupIds) {
           try {
             await deleteImage(fileId);
           } catch (deleteError) {
+            cleanupFailed = true;
             setError(deleteError instanceof Error ? deleteError.message : "Old image cleanup failed.");
           }
         }
+      } else {
+        for (const fileId of cleanupIds) {
+          try {
+            await deleteImage(fileId);
+          } catch (deleteError) {
+            cleanupFailed = true;
+            setError(deleteError instanceof Error ? deleteError.message : "Uploaded image cleanup failed.");
+          }
+        }
       }
+      setPendingUploadedIds([]);
       setCreating(false);
       setEditing(null);
       await load();
+      if (!cleanupFailed) {
+        setSuccessMessage(`${editing ? "updated" : "added"} ${singularTitle(title)} successfully.`);
+      }
     }
     setSaving(false);
   }
@@ -482,7 +794,7 @@ export function ModuleTable({
             onClick={openCreate}
             className="flex h-11 items-center justify-center gap-2 rounded-full bg-[#263D18] px-5 text-sm font-semibold text-white"
           >
-            <Plus className="size-4" /> Add {title.replace(/s$/, "")}
+            <Plus className="size-4" /> Add {singularTitle(title)}
           </button>
         )}
       </div>
@@ -490,6 +802,25 @@ export function ModuleTable({
       {error && (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-4 top-4 z-[80] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-xl border border-[#536B35]/20 bg-[#EAF1DF] px-4 py-3 text-sm text-[#263D18] shadow-[0_12px_30px_rgba(38,61,24,0.16)]"
+        >
+          <CheckCircle2 className="size-5 shrink-0 text-[#536B35]" aria-hidden="true" />
+          <span>{successMessage}</span>
+          <button
+            type="button"
+            onClick={() => setSuccessMessage("")}
+            aria-label="Dismiss notification"
+            className="ml-1 rounded-md p-1 text-[#536B35] hover:bg-[#536B35]/10 focus:outline-none focus:ring-2 focus:ring-[#536B35]/40"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
         </div>
       )}
 
@@ -541,7 +872,7 @@ export function ModuleTable({
                 <tr key={row.id} className="border-t border-[#28321F]/8">
                   {columns.map((column) => (
                     <td key={column.key} className="px-5 py-4">
-                      {renderCell(row, column)}
+                      {renderCell(row, column, toggleRowField, togglingKey)}
                     </td>
                   ))}
                   <td className="px-5 py-4">
@@ -608,21 +939,24 @@ export function ModuleTable({
         <div className="fixed inset-0 z-[60] grid place-items-center bg-[#1D3214]/40 p-4" role="dialog" aria-modal="true">
           <form onSubmit={save} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-elevated md:p-7">
             <div className="flex items-center justify-between">
-              <h2 className="font-serif text-2xl">{editing ? "Edit" : "Add"} {title.replace(/s$/, "")}</h2>
+              <h2 className="font-serif text-2xl">{editing ? "Edit" : "Add"} {singularTitle(title)}</h2>
               <button type="button" aria-label="Close" onClick={closeEditor} className="grid size-9 place-items-center rounded-lg hover:bg-[#FBF7EE]">
                 <X className="size-5" />
               </button>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {emptyFields.map((field) => (
-                  <label key={field.key} className={field.type === "textarea" || field.type === "json" || field.type === "image" ? "sm:col-span-2" : ""}>
-                  <span className="mb-1.5 block text-sm font-medium">{field.label}{field.required ? " *" : ""}</span>
+              {emptyFields.map((field) => {
+                const uploadedImages = imageList(form[field.key]);
+                return (
+                  <div key={field.key} className={field.type === "textarea" || field.type === "json" || field.type === "image" ? "sm:col-span-2" : ""}>
+                  <label htmlFor={field.key} className="mb-1.5 block text-sm font-medium">{field.label}{field.required ? " *" : ""}</label>
                   {field.type === "image" ? (
                     <div className="space-y-2">
                       <input
+                        id={field.key}
                         type="file"
                         accept="image/*"
-                        disabled={uploadingKey === field.key}
+                        disabled={Boolean(uploadingKey)}
                         onChange={(event) => {
                           const file = event.target.files?.[0];
                           if (file) void uploadImage(field, file);
@@ -630,20 +964,84 @@ export function ModuleTable({
                         }}
                         className="block w-full rounded-xl border border-[#28321F]/10 px-3 py-2 text-sm"
                       />
+                      {field.imageValidation?.helpText && (
+                        <p className="text-xs leading-relaxed text-[#777968]">{field.imageValidation.helpText}</p>
+                      )}
                       {uploadingKey === field.key && <p className="text-xs text-[#777968]">Uploading securely…</p>}
                       {field.assetIdKey && typeof form[field.key] === "string" && Boolean(form[field.key]) && (
-                        <Image src={String(form[field.key])} alt={field.label} width={96} height={96} unoptimized className="size-24 rounded-xl object-cover" />
+                        <ImagePreview
+                          src={String(form[field.key])}
+                          alt={`${field.label} preview`}
+                          width={640}
+                          height={360}
+                          className="h-32 w-full max-w-sm rounded-xl border border-[#28321F]/8 object-cover"
+                        />
                       )}
-                      {!field.assetIdKey && <textarea value={String(form[field.key] ?? "[]")} readOnly className="min-h-20 w-full rounded-xl border border-[#28321F]/10 px-3 py-2 text-xs text-[#777968]" />}
+                      {!field.assetIdKey && (
+                        <>
+                          {uploadedImages.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                              {uploadedImages.map((image, index) => {
+                                const entry = imageEntries([image])[0];
+                                if (!entry) return null;
+                                return (
+                                  <div key={`${entry.src}-${index}`} className="relative overflow-hidden rounded-xl border border-[#28321F]/8 bg-[#FBF7EE] p-1">
+                                    <ImagePreview
+                                      src={entry.src}
+                                      alt={entry.alt ?? `${field.label} ${index + 1}`}
+                                      width={160}
+                                      height={160}
+                                      className="h-24 w-full rounded-lg object-contain"
+                                    />
+                                    <button
+                                      type="button"
+                                      aria-label={`Remove ${field.label.toLowerCase()} ${index + 1}`}
+                                      onClick={() => removeImage(field, index)}
+                                      className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-white/95 text-red-600 shadow-sm hover:bg-red-50"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-[#28321F]/12 bg-[#FBF7EE] px-4 py-5 text-center text-xs text-[#777968]">
+                              No product images uploaded yet.
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
+                  ) : field.control === "toggle" ? (
+                    <button
+                      id={field.key}
+                      type="button"
+                      role="switch"
+                      aria-checked={Boolean(form[field.key])}
+                      onClick={() => setForm((current) => ({ ...current, [field.key]: !Boolean(current[field.key]) }))}
+                      className={`flex h-11 w-full items-center justify-between rounded-xl border px-3 text-sm transition-colors ${
+                        Boolean(form[field.key])
+                          ? "border-[#536B35]/25 bg-[#EAF1DF] text-[#263D18]"
+                          : "border-[#28321F]/10 bg-white text-[#777968]"
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <span className={`size-2 rounded-full ${Boolean(form[field.key]) ? "bg-[#3C6E26]" : "bg-[#A4A79A]"}`} aria-hidden="true" />
+                        {Boolean(form[field.key]) ? "On" : "Off"}
+                      </span>
+                      <span className="text-xs font-medium">Tap to turn {Boolean(form[field.key]) ? "off" : "on"}</span>
+                    </button>
                   ) : field.type === "textarea" || field.type === "json" ? (
                     <textarea
+                      id={field.key}
                       value={String(form[field.key] ?? "")}
                       onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
                       className="min-h-24 w-full rounded-xl border border-[#28321F]/10 px-3 py-2.5 text-sm outline-none focus:border-[#536B35]"
                     />
                   ) : field.type === "boolean" ? (
                     <select
+                      id={field.key}
                       value={String(Boolean(form[field.key]))}
                       onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value === "true" }))}
                       className="h-11 w-full rounded-xl border border-[#28321F]/10 px-3 text-sm"
@@ -652,6 +1050,7 @@ export function ModuleTable({
                     </select>
                   ) : field.type === "select" ? (
                     <select
+                      id={field.key}
                       value={String(form[field.key] ?? "")}
                       onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
                       className="h-11 w-full rounded-xl border border-[#28321F]/10 px-3 text-sm"
@@ -661,18 +1060,20 @@ export function ModuleTable({
                     </select>
                   ) : (
                     <input
+                      id={field.key}
                       type={field.type ?? "text"}
                       value={String(form[field.key] ?? "")}
                       onChange={(event) => setForm((current) => ({ ...current, [field.key]: event.target.value }))}
                       className="h-11 w-full rounded-xl border border-[#28321F]/10 px-3 text-sm outline-none focus:border-[#536B35]"
                     />
                   )}
-                </label>
-              ))}
+                  </div>
+                );
+              })}
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button type="button" onClick={closeEditor} className="h-11 rounded-full border border-[#28321F]/12 px-5 text-sm">Cancel</button>
-              <button type="submit" disabled={saving} className="h-11 rounded-full bg-[#263D18] px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">
+              <button type="submit" disabled={saving || Boolean(uploadingKey)} className="h-11 rounded-full bg-[#263D18] px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">
                 {saving ? "Saving…" : "Save changes"}
               </button>
             </div>

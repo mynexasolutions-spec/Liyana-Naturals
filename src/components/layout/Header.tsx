@@ -54,7 +54,7 @@ function DesktopNavigation({ categories = [] }: { categories?: ProductCategory[]
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { catalogProducts } = useStore();
-  const featuredMegaProducts = catalogProducts.slice(0, 3);
+  const featuredMegaProducts = catalogProducts.filter((product) => product.isFeatured).slice(0, 3);
   const navigation = navigationForCategories(categories);
 
   const handleMouseEnter = () => {

@@ -39,24 +39,15 @@ function applyHomepageConfiguration(
   configuration: Record<string, unknown>,
 ) {
   const bestSellerSlugs = stringList(configuration.bestSellerProductSlugs);
-  const featuredProductSlugs = stringList(configuration.featuredProductSlugs);
   const featuredCategorySlugs = stringList(configuration.featuredCategorySlugs);
   const featuredBlogSlugs = stringList(configuration.featuredBlogSlugs);
 
   return {
-    products: orderBySlugs(
-      products.map((product) => ({
-        ...product,
-        isBestSeller: bestSellerSlugs.length > 0
-          ? bestSellerSlugs.includes(product.slug)
-          : product.isBestSeller,
-        isFeatured: featuredProductSlugs.length > 0
-          ? featuredProductSlugs.includes(product.slug)
-          : product.isFeatured,
-      })),
-      bestSellerSlugs,
+    products: orderBySlugs(products, bestSellerSlugs),
+    categories: orderBySlugs(
+      categories.filter((category) => category.isFeatured !== false),
+      featuredCategorySlugs,
     ),
-    categories: orderBySlugs(categories, featuredCategorySlugs),
     blogs: orderBySlugs(
       blogs.map((blog) => ({
         ...blog,

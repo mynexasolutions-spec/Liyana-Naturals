@@ -25,7 +25,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-[#FBF7EE] text-[#28321F] font-sans antialiased">
+      <body
+        suppressHydrationWarning
+        className="min-h-screen bg-[#FBF7EE] text-[#28321F] font-sans antialiased"
+      >
         {children}
       </body>
     </html>

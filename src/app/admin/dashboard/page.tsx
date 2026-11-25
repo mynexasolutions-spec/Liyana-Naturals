@@ -82,7 +82,7 @@ export default async function AdminDashboardPage() {
                 <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">{product.stock_quantity} left</span>
               </div>
             ))}
-            {(!lowStock.data || lowStock.data.length === 0) && <p className="py-6 text-sm text-[#777968]">Inventory levels are healthy.</p>}
+            {(!lowStock.data || lowStock.data.length === 0) && <p className="py-6 text-sm text-[#777968]">Stock levels are healthy.</p>}
           </div>
         </article>
       </section>

@@ -35,6 +35,7 @@ type StoreCategoryRow = {
   slug: string;
   description: string | null;
   image_url: string | null;
+  is_featured: boolean;
 };
 
 type ContentRow = {
@@ -49,7 +50,9 @@ export type StorefrontBanner = {
   id: string;
   title: string;
   subtitle: string | null;
-  image_url: string;
+  image_url: string | null;
+  desktop_image_url: string | null;
+  mobile_image_url: string | null;
   link_url: string | null;
 };
 
@@ -81,18 +84,27 @@ function stringArray(value: unknown): string[] {
 }
 
 function productImages(value: unknown, name: string) {
-  if (!Array.isArray(value)) return [];
-
-  return value.flatMap((item) => {
-    if (typeof item === "string") return [{ src: item, alt: name }];
-    if (
-      item &&
-      typeof item === "object" &&
-      "src" in item &&
-      typeof item.src === "string"
-    ) {
-      return [{ src: item.src, alt: typeof item.alt === "string" ? item.alt : name }];
+  const images = (() => {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== "string" || !value.trim()) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
     }
+  })();
+
+  return images.flatMap((item) => {
+    if (typeof item === "string") return [{ src: item, alt: name }];
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    const src = typeof record.src === "string" && record.src.trim()
+      ? record.src.trim()
+      : typeof record.url === "string" && record.url.trim()
+        ? record.url.trim()
+        : null;
+    if (src) return [{ src, alt: typeof record.alt === "string" ? record.alt : name }];
     return [];
   });
 }
@@ -159,7 +171,7 @@ export async function getStorefrontCategories(): Promise<ProductCategory[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("categories")
-    .select("id,name,slug,description,image_url")
+    .select("id,name,slug,description,image_url,is_featured")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
   if (error) throw new Error(`Storefront categories could not be loaded: ${error.message}`);
@@ -170,6 +182,7 @@ export async function getStorefrontCategories(): Promise<ProductCategory[]> {
     slug: row.slug,
     description: row.description ?? "",
     image: row.image_url ?? "",
+    isFeatured: row.is_featured,
   }));
 }
 
@@ -177,7 +190,7 @@ export async function getStorefrontBanners(): Promise<StorefrontBanner[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("homepage_banners")
-    .select("id,title,subtitle,image_url,link_url")
+    .select("id,title,subtitle,image_url,desktop_image_url,mobile_image_url,link_url")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
   if (error) throw new Error(`Homepage banners could not be loaded: ${error.message}`);

@@ -2,10 +2,13 @@ import { ModuleTable } from "@/components/admin/ModuleTable";
 
 export default function ProductsPage() {
   return <ModuleTable table="products" title="Products" searchKeys={["name", "slug", "tagline"]} columns={[
+    { key: "images", label: "Image", format: "image" },
     { key: "name", label: "Product", format: "product" },
     { key: "price", label: "Price", format: "currency" },
     { key: "stock_quantity", label: "Stock" },
-    { key: "is_active", label: "Status", format: "status" },
+    { key: "is_featured", label: "Featured", format: "toggle" },
+    { key: "is_best_seller", label: "Best seller", format: "toggle" },
+    { key: "is_active", label: "Active", format: "toggle" },
   ]} emptyFields={[
     { key: "name", label: "Product name", required: true },
     { key: "slug", label: "Slug", required: true },
@@ -25,9 +28,21 @@ export default function ProductsPage() {
     { key: "ingredients", label: "Ingredients JSON", type: "json" },
     { key: "benefits", label: "Benefits JSON", type: "json" },
     { key: "how_to_use", label: "How to use", type: "textarea" },
-    { key: "is_featured", label: "Featured", type: "boolean" },
-    { key: "is_best_seller", label: "Best seller", type: "boolean" },
-    { key: "is_active", label: "Active", type: "boolean" },
-    { key: "images", label: "Product images", type: "image", folder: "/liyana-naturals/products" },
+    { key: "is_featured", label: "Featured", type: "boolean", control: "toggle", defaultValue: false },
+    { key: "is_best_seller", label: "Best seller", type: "boolean", control: "toggle", defaultValue: false },
+    { key: "is_active", label: "Active", type: "boolean", control: "toggle", defaultValue: true },
+    {
+      key: "images",
+      label: "Product images",
+      type: "image",
+      folder: "/liyana-naturals/products",
+      imageValidation: {
+        allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+        maxBytes: 10 * 1024 * 1024,
+        minWidth: 300,
+        minHeight: 300,
+        helpText: "JPG, PNG, or WebP · at least 300 × 300 · 10 MB max",
+      },
+    },
   ]} />;
 }

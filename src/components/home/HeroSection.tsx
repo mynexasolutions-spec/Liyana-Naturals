@@ -17,7 +17,8 @@ import type { StorefrontBanner } from "@/lib/supabase/storefront";
 const fallbackSlides = [
   {
     id: 1,
-    backgroundImage: undefined,
+    desktopImage: undefined,
+    mobileImage: undefined,
     eyebrow: "NATURE'S CARE FOR YOU",
     titleLine1: "Glow Naturally,",
     titleLine2: "Live Beautifully",
@@ -32,7 +33,8 @@ const fallbackSlides = [
   },
   {
     id: 2,
-    backgroundImage: undefined,
+    desktopImage: undefined,
+    mobileImage: undefined,
     eyebrow: "AYURVEDIC & BOTANICAL SCIENCE",
     titleLine1: "Cold-Pressed Purity,",
     titleLine2: "Timeless Radiance",
@@ -47,7 +49,8 @@ const fallbackSlides = [
   },
   {
     id: 3,
-    backgroundImage: undefined,
+    desktopImage: undefined,
+    mobileImage: undefined,
     eyebrow: "CERTIFIED ORGANIC CARE",
     titleLine1: "Rooted in Nature,",
     titleLine2: "Proven by Science",
@@ -73,7 +76,8 @@ export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) 
         primaryBtn: { label: "Shop Now", href: banner.link_url ?? "/shop" },
         secondaryBtn: fallbackSlides[index % fallbackSlides.length].secondaryBtn,
         badges: fallbackSlides[index % fallbackSlides.length].badges,
-        backgroundImage: banner.image_url,
+        desktopImage: banner.desktop_image_url ?? banner.image_url,
+        mobileImage: banner.mobile_image_url ?? banner.desktop_image_url ?? banner.image_url,
       }))
     : fallbackSlides;
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -106,31 +110,21 @@ export function HeroSection({ banners = [] }: { banners?: StorefrontBanner[] }) 
     >
       {/* Background High-Definition Hero Image (Responsive: Desktop & Mobile) */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        {/* Desktop Image (md: 768px and up) - unoptimized prevents lossy compression / pixelation */}
-        <div className="hidden md:block absolute inset-0">
+        <picture className="absolute inset-0 block h-full w-full">
+          <source
+            media="(max-width: 767px)"
+            srcSet={slide.mobileImage ?? "/images/hero/Liyana_hero_mobile.png"}
+          />
           <Image
-            src={slide.backgroundImage ?? "/images/hero/Liyana_hero_dextop.png"}
+            src={slide.desktopImage ?? "/images/hero/Liyana_hero_dextop.png"}
             alt="Liyana Naturals Organic Cosmetics Collection"
             fill
             priority
             unoptimized
             sizes="100vw"
-            className="object-cover object-right"
+            className="object-cover object-bottom md:object-right"
           />
-        </div>
-
-        {/* Mobile Image (< 768px) - unoptimized guarantees direct raw image load without optimization failure */}
-        <div className="block md:hidden absolute inset-0">
-          <Image
-            src={slide.backgroundImage ?? "/images/hero/Liyana_hero_mobile.png"}
-            alt="Liyana Naturals Organic Cosmetics Collection"
-            fill
-            priority
-            unoptimized
-            sizes="100vw"
-            className="object-cover object-bottom"
-          />
-        </div>
+        </picture>
 
         {/* Soft, atmospheric cream-toned readability gradient on desktop */}
         <div

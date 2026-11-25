@@ -31,5 +31,6 @@ export interface ProductCategory {
   slug: string;
   description: string;
   image: string;
+  isFeatured?: boolean;
   productCount?: number;
 }

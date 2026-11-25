@@ -107,7 +107,7 @@ async function main(): Promise<void> {
       if (assetInsertError) throw new Error(`Media metadata failed: ${assetInsertError.message}`);
     }
 
-    return { ...asset, alt };
+    return { ...asset, src: asset.url, alt };
   }
 
   const categoryAssets = new Map<string, Awaited<ReturnType<typeof imageAsset>>>();
@@ -133,6 +133,7 @@ async function main(): Promise<void> {
         image_url: asset.url,
         image_file_id: asset.fileId,
         is_active: true,
+        is_featured: true,
         sort_order: index,
       };
     }),

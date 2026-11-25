@@ -6,7 +6,14 @@ export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { fileId } = await request.json();
+  let body: { fileId?: unknown };
+  try {
+    body = (await request.json()) as { fileId?: unknown };
+  } catch {
+    return NextResponse.json({ error: "Invalid delete request." }, { status: 400 });
+  }
+
+  const { fileId } = body;
   if (!fileId || typeof fileId !== "string") {
     return NextResponse.json({ error: "fileId is required" }, { status: 400 });
   }
@@ -19,7 +26,11 @@ export async function POST(request: Request) {
   }
 
   const imagekit = new ImageKit({ publicKey, privateKey, urlEndpoint });
-  await imagekit.deleteFile(fileId);
+  try {
+    await imagekit.deleteFile(fileId);
+  } catch {
+    return NextResponse.json({ error: "ImageKit could not delete the requested file." }, { status: 502 });
+  }
   const { error } = await session.supabase
     .from("media_assets")
     .delete()
