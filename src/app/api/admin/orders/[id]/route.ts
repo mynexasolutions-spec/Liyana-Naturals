@@ -13,7 +13,7 @@ const updateSchema = z.object({
 
 const DELETE_REFUSALS: Record<string, [string, number]> = {
   not_found: ["Order not found.", 404],
-  shipment_open: ["This order is booked with the courier. Cancel the shipment in Shiprocket and sync, then delete it.", 409],
+  shipment_open: ["This order is booked with the courier. Cancel it in Shiprocket, set the order status to cancelled, then delete it.", 409],
   payment_open: ["The customer may still be paying for this order. Try again in a little while.", 409],
 };
 
