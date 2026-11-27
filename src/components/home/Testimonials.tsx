@@ -19,13 +19,19 @@ export function Testimonials({ reviews }: { reviews: StorefrontReview[] }) {
   const testimonials = reviews.map((review) => ({
     id: review.id,
     author: review.author,
+    title: review.title,
     quote: review.body,
     rating: review.rating,
     productName: review.productName ?? undefined,
   }));
 
-  // Duplicate testimonials array for seamless infinite right-to-left loop
-  const marqueeItems = [...testimonials, ...testimonials];
+  // A few reviews sit still in the middle; more than that scroll across the page.
+  const scrolls = testimonials.length > 3;
+  // Each half must be wider than the screen, and the two halves identical, for a seamless loop.
+  const half = scrolls
+    ? Array.from({ length: Math.ceil(6 / testimonials.length) }, () => testimonials).flat()
+    : testimonials;
+  const marqueeItems = scrolls ? [...half, ...half] : half;
 
   return (
     <section
@@ -95,27 +101,33 @@ export function Testimonials({ reviews }: { reviews: StorefrontReview[] }) {
         ========================================================================
       */}
       <div className="relative w-full group/marquee overflow-hidden py-3">
-        {/* Left Fade Shadow Overlay */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 sm:w-28 lg:w-44 z-20 bg-gradient-to-r from-[#FAF6EE] via-[#FAF6EE]/90 to-transparent shadow-[inset_16px_0_24px_-10px_rgba(40,50,31,0.08)]"
-        />
+        {scrolls && (
+          <>
+            {/* Left Fade Shadow Overlay */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 sm:w-28 lg:w-44 z-20 bg-gradient-to-r from-[#FAF6EE] via-[#FAF6EE]/90 to-transparent shadow-[inset_16px_0_24px_-10px_rgba(40,50,31,0.08)]"
+            />
 
-        {/* Right Fade Shadow Overlay */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 sm:w-28 lg:w-44 z-20 bg-gradient-to-l from-[#FAF6EE] via-[#FAF6EE]/90 to-transparent shadow-[inset_-16px_0_24px_-10px_rgba(40,50,31,0.08)]"
-        />
+            {/* Right Fade Shadow Overlay */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 sm:w-28 lg:w-44 z-20 bg-gradient-to-l from-[#FAF6EE] via-[#FAF6EE]/90 to-transparent shadow-[inset_-16px_0_24px_-10px_rgba(40,50,31,0.08)]"
+            />
+          </>
+        )}
 
         {/* Continuous Marquee Track */}
-        <div className="animate-marquee-infinite flex items-stretch gap-5 sm:gap-6 px-4">
+        <div
+          className={`flex items-stretch gap-5 sm:gap-6 px-4 ${scrolls ? "animate-marquee-infinite" : "flex-wrap justify-center"}`}
+        >
           {marqueeItems.map((item, index) => {
             const theme = avatarColorThemes[index % avatarColorThemes.length];
 
             return (
               <div
                 key={`${item.id}-${index}`}
-                className="w-[310px] sm:w-[340px] lg:w-[360px] shrink-0 bg-white/95 rounded-[5px] p-6 sm:p-6.5 border border-[#28321F]/8 shadow-[0_4px_24px_rgba(40,50,31,0.06)] hover:shadow-[0_12px_36px_rgba(40,50,31,0.12)] hover:border-[#536B35]/30 transition-all duration-300 flex flex-col justify-between cursor-default select-none group/card"
+                className="w-[310px] max-w-full sm:w-[340px] lg:w-[360px] shrink-0bg-white/95 rounded-[5px] p-6 sm:p-6.5 border border-[#28321F]/8 shadow-[0_4px_24px_rgba(40,50,31,0.06)] hover:shadow-[0_12px_36px_rgba(40,50,31,0.12)] hover:border-[#536B35]/30 transition-all duration-300 flex flex-col justify-between cursor-default select-none group/card"
               >
                 <div>
                   {/* Top Header: Avatar + User Details + Quote Icon */}
@@ -157,6 +169,12 @@ export function Testimonials({ reviews }: { reviews: StorefrontReview[] }) {
                       />
                     ))}
                   </div>
+
+                  {item.title && (
+                    <h3 className="font-sans font-bold text-[15px] sm:text-[16px] text-[#28321F] mb-1.5 line-clamp-2 break-words">
+                      {item.title}
+                    </h3>
+                  )}
 
                   {/* Customer Review Quote (16px on desktop, responsive on mobile) */}
                   <p className="font-sans text-[14.5px] sm:text-[15.5px] md:text-[16px] text-[#2B3522] leading-relaxed line-clamp-3">

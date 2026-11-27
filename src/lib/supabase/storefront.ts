@@ -3,6 +3,8 @@ import "server-only";
 import type { BlogPost, Product, ProductCategory } from "@/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { renderableImageUrl } from "@/lib/media/image-url";
+import { toBadges } from "@/lib/content/badges";
+import { CONTENT_PAGES, pageContent, pageKey, type PageSlug } from "@/lib/content/pages";
 
 type RelatedCategory = { name?: string; slug?: string } | null;
 
@@ -22,12 +24,26 @@ type StoreProductRow = {
   badge: Product["badge"] | null;
   is_featured: boolean;
   is_best_seller: boolean;
-  volume: string | null;
   ingredients: unknown;
   benefits: unknown;
   how_to_use: string | null;
   images: unknown;
   categories: RelatedCategory;
+  seo_title: string | null;
+  seo_description: string | null;
+  faqs: unknown;
+  highlights: unknown;
+  tags: unknown;
+  product_variants:
+    | {
+        id: string;
+        name: string;
+        price: number | string;
+        original_price: number | string | null;
+        stock_quantity: number;
+        sort_order: number;
+      }[]
+    | null;
 };
 
 type StoreCategoryRow = {
@@ -68,6 +84,9 @@ export type StorefrontBanner = {
   desktop_image_url: string | null;
   mobile_image_url: string | null;
   link_url: string | null;
+  eyebrow?: string | null;
+  button_label?: string | null;
+  show_text?: boolean;
 };
 
 export type StorefrontReview = {
@@ -78,6 +97,8 @@ export type StorefrontReview = {
   body: string;
   createdAt: string;
   productName: string | null;
+  /** Chosen by the admin for the home page. */
+  showOnHome: boolean;
 };
 
 export type StorefrontSettings = {
@@ -87,7 +108,12 @@ export type StorefrontSettings = {
   address: string | null;
   announcement_enabled: boolean;
   announcement_text: string | null;
+  shipping_fee: number | string | null;
   free_shipping_threshold: number | string | null;
+  cod_enabled?: boolean;
+  online_payment_enabled?: boolean;
+  cod_fee?: number | string | null;
+  product_badges: unknown;
   global: Record<string, unknown>;
 };
 
@@ -118,8 +144,24 @@ function productImages(value: unknown, name: string) {
       : typeof record.url === "string" && record.url.trim()
         ? record.url.trim()
         : null;
-    if (src) return [{ src, alt: typeof record.alt === "string" ? record.alt : name }];
+    if (src) {
+      return [{
+        src,
+        alt: typeof record.alt === "string" ? record.alt : name,
+        ...(typeof record.size === "string" && record.size ? { size: record.size } : {}),
+      }];
+    }
     return [];
+  });
+}
+
+function productFaqs(value: unknown): NonNullable<Product["faqs"]> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+    return typeof record.question === "string" && typeof record.answer === "string"
+      ? [{ question: record.question, answer: record.answer }]
+      : [];
   });
 }
 
@@ -145,10 +187,25 @@ function mapProduct(row: StoreProductRow): Product {
     isBestSeller: row.is_best_seller,
     isFeatured: row.is_featured,
     inStock: row.stock_quantity > 0,
-    volume: row.volume ?? undefined,
     ingredients: stringArray(row.ingredients),
     benefits: stringArray(row.benefits),
     howToUse: row.how_to_use ?? undefined,
+    variants: [...(row.product_variants ?? [])]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((variant) => ({
+        id: variant.id,
+        name: variant.name,
+        price: Number(variant.price),
+        originalPrice: variant.original_price === null ? undefined : Number(variant.original_price),
+        inStock: variant.stock_quantity > 0,
+        stock: variant.stock_quantity,
+      })),
+    highlights: toBadges(row.highlights),
+    tags: stringArray(row.tags),
+    stock: row.stock_quantity,
+    seoTitle: row.seo_title ?? undefined,
+    seoDescription: row.seo_description ?? undefined,
+    faqs: productFaqs(row.faqs),
   };
 }
 
@@ -187,7 +244,7 @@ export async function getStorefrontProducts(): Promise<Product[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("products")
-    .select("*, categories(name,slug)")
+    .select("*, categories(name,slug), product_variants(id,name,price,original_price,stock_quantity,sort_order)")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`Storefront products could not be loaded: ${error.message}`);
@@ -200,7 +257,8 @@ export async function getStorefrontCategories(): Promise<ProductCategory[]> {
     .from("categories")
     .select("id,name,slug,description,image_url,is_featured")
     .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
   if (error) throw new Error(`Storefront categories could not be loaded: ${error.message}`);
 
   return (data as StoreCategoryRow[] | null ?? []).map((row) => ({
@@ -217,7 +275,7 @@ export async function getStorefrontBanners(): Promise<StorefrontBanner[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("homepage_banners")
-    .select("id,title,subtitle,image_url,desktop_image_url,mobile_image_url,link_url")
+    .select("*")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
   if (error) throw new Error(`Homepage banners could not be loaded: ${error.message}`);
@@ -233,7 +291,8 @@ export async function getStorefrontReviews(productId?: string): Promise<Storefro
   const supabase = await createSupabaseServerClient();
   let query = supabase
     .from("reviews")
-    .select("id,author_name,rating,title,body,created_at,products(name)")
+    // Every column, so reviews still load before the show_on_home column exists.
+    .select("*,products(name)")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
   if (productId) query = query.eq("product_id", productId);
@@ -250,6 +309,7 @@ export async function getStorefrontReviews(productId?: string): Promise<Storefro
       body: row.body ?? "",
       createdAt: row.created_at,
       productName: product?.name ?? null,
+      showOnHome: row.show_on_home !== false,
     };
   });
 }
@@ -281,12 +341,47 @@ export async function getStorefrontContent(sectionKey: string): Promise<Record<s
   return data?.body && typeof data.body === "object" ? data.body as Record<string, unknown> : {};
 }
 
+export type PageLink = { slug: PageSlug; title: string };
+
+/** The published text pages, in footer order. Never breaks the rest of the website. */
+export async function getPublishedPages(): Promise<PageLink[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("site_content")
+    .select("section_key,title,body")
+    .like("section_key", "page:%")
+    // A signed-in admin can read hidden pages too, so ask for published ones.
+    .eq("is_published", true);
+  if (error) {
+    console.error("[storefront] Pages could not be loaded:", error.message);
+    return [];
+  }
+  return CONTENT_PAGES.flatMap(({ slug, name }) => {
+    const row = data?.find((item) => item.section_key === pageKey(slug));
+    return row && pageContent(row.body) ? [{ slug, title: row.title || name }] : [];
+  });
+}
+
+export async function getContentPage(slug: PageSlug) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("site_content")
+    .select("title,body,updated_at")
+    .eq("section_key", pageKey(slug))
+    .eq("is_published", true)
+    .maybeSingle();
+  if (error) throw new Error(`Page could not be loaded: ${error.message}`);
+  const content = pageContent(data?.body);
+  return data && content ? { title: data.title as string | null, content, updatedAt: data.updated_at as string } : null;
+}
+
 export async function getStorefrontSettings(): Promise<StorefrontSettings | null> {
   const supabase = await createSupabaseServerClient();
   const [{ data: settings, error: settingsError }, { data: content, error: contentError }] = await Promise.all([
     supabase
       .from("store_settings")
-      .select("store_name,support_email,support_phone,address,announcement_enabled,announcement_text,free_shipping_threshold")
+      // Every column of this table is public.
+      .select("*")
       .eq("id", true)
       .maybeSingle(),
     supabase

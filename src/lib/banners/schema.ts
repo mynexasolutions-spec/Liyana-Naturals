@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSafeBannerLink } from "@/lib/banners/link";
 
 function isSupportedImageUrl(value: string): boolean {
   if (value.startsWith("/")) return true;
@@ -27,7 +28,16 @@ const bannerFields = {
   desktop_image_file_id: imageFileId,
   mobile_image_url: imageUrl,
   mobile_image_file_id: imageFileId,
-  link_url: z.string().trim().max(2048).nullable().optional(),
+  link_url: z
+    .string()
+    .trim()
+    .max(2048)
+    .refine((value) => value === "" || isSafeBannerLink(value), "The link must start with / or https://")
+    .nullable()
+    .optional(),
+  eyebrow: z.string().trim().max(60, "The small label must be 60 characters or fewer.").nullable().optional(),
+  button_label: z.string().trim().max(40, "The button text must be 40 characters or fewer.").nullable().optional(),
+  show_text: z.boolean().optional(),
   is_active: z.boolean().optional(),
   sort_order: z.number().int().min(0).max(2147483647).optional(),
 };

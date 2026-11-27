@@ -2,15 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ArrowDownUp, CheckCircle2, ImageOff, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowDownUp, CheckCircle2, Eye, ImageOff, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { renderableImageUrl } from "@/lib/media/image-url";
+import { DataView, useViewMode, ViewToggle } from "@/components/admin/kit";
 
 type Row = Record<string, unknown> & { id: string };
 
 export type ModuleFieldType =
   | "text"
   | "number"
+  | "date"
   | "email"
   | "textarea"
   | "boolean"
@@ -27,6 +30,8 @@ export interface ModuleField {
   control?: "toggle";
   defaultValue?: string | boolean;
   required?: boolean;
+  /** Clearing the field saves null instead of leaving the old value. */
+  nullable?: boolean;
   options?: { label: string; value: string }[];
   assetIdKey?: string;
   folder?: string;
@@ -58,6 +63,8 @@ interface ModuleTableProps {
   mutationEndpoint?: string;
   orderBy?: string;
   allowCreate?: boolean;
+  /** Adds a "view" link per row to `<detailBasePath>/<id>`. */
+  detailBasePath?: string;
   filters?: { key: string; value: string; operator?: "eq" | "like" }[];
 }
 
@@ -329,6 +336,7 @@ function buildPayload(
     }
 
     if (stringValue === "" || stringValue === undefined) {
+      if (field.nullable) payload[field.key] = null;
       if (field.valueFormat === "string-array") payload[field.key] = [];
       if (field.type === "image" && field.assetIdKey) {
         payload[field.key] = null;
@@ -454,6 +462,7 @@ export function ModuleTable({
   mutationEndpoint,
   orderBy = "created_at",
   allowCreate = true,
+  detailBasePath,
   filters = EMPTY_FILTERS,
 }: ModuleTableProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -473,6 +482,7 @@ export function ModuleTable({
   const [relationOptions, setRelationOptions] = useState<Record<string, { label: string; value: string }[]>>({});
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const [view, setView] = useViewMode(table);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -922,6 +932,35 @@ export function ModuleTable({
 
   const modalOpen = creating || Boolean(editing);
 
+  const rowActions = (row: Row) => (
+    <div className="flex justify-end gap-1">
+      {detailBasePath && (
+        <Link
+          href={`${detailBasePath}/${encodeURIComponent(row.id)}`}
+          aria-label={`View ${title} details`}
+          className="grid size-9 place-items-center rounded-lg text-[#263D18] hover:bg-[#E9DCC5]/50"
+        >
+          <Eye className="size-4" />
+        </Link>
+      )}
+      <button
+        aria-label={`Edit ${title}`}
+        onClick={() => openEdit(row)}
+        className="grid size-9 place-items-center rounded-lg text-[#536B35] hover:bg-[#E9DCC5]/50"
+      >
+        <Pencil className="size-4" />
+      </button>
+      <button
+        aria-label={`Delete ${title}`}
+        onClick={() => void remove(row)}
+        className="grid size-9 place-items-center rounded-lg text-red-600 hover:bg-red-50"
+      >
+        <Trash2 className="size-4" />
+      </button>
+    </div>
+  );
+  const emptyText = loading ? "Loading records…" : "No records found.";
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -978,80 +1017,85 @@ export function ModuleTable({
               className="h-11 w-full rounded-xl border border-[#28321F]/10 pl-9 pr-4 text-sm outline-none focus:border-[#536B35]"
             />
           </div>
-          <p className="text-xs text-[#777968]">
-            {filtered.length} {filtered.length === 1 ? "record" : "records"}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-[#777968]">
+              {filtered.length} {filtered.length === 1 ? "record" : "records"}
+            </p>
+            <ViewToggle view={view} onChange={setView} />
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] text-left text-sm">
-            <thead className="bg-[#FBF7EE] text-xs text-[#777968]">
-              <tr>
-                {columns.map((column) => (
-                  <th key={column.key} className="px-5 py-3 font-medium">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (sortKey === column.key) setAscending((value) => !value);
-                        else {
-                          setSortKey(column.key);
-                          setAscending(true);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5"
-                    >
-                      {column.label}
-                      <ArrowDownUp className="size-3" />
-                    </button>
-                  </th>
-                ))}
-                <th className="w-24 px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((row) => (
-                <tr key={row.id} className="border-t border-[#28321F]/8">
-                  {columns.map((column) => (
-                    <td key={column.key} className="px-5 py-4">
-                      {renderCell(row, column, toggleRowField, togglingKey)}
-                    </td>
+        <DataView
+          view={view}
+          table={
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-left text-sm">
+                <thead className="bg-[#FBF7EE] text-xs text-[#777968]">
+                  <tr>
+                    {columns.map((column) => (
+                      <th key={column.key} className="px-5 py-3 font-medium">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (sortKey === column.key) setAscending((value) => !value);
+                            else {
+                              setSortKey(column.key);
+                              setAscending(true);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5"
+                        >
+                          {column.label}
+                          <ArrowDownUp className="size-3" />
+                        </button>
+                      </th>
+                    ))}
+                    <th className="w-24 px-5 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleRows.map((row) => (
+                    <tr key={row.id} className="border-t border-[#28321F]/8">
+                      {columns.map((column) => (
+                        <td key={column.key} className="px-5 py-4">
+                          {renderCell(row, column, toggleRowField, togglingKey)}
+                        </td>
+                      ))}
+                      <td className="px-5 py-4">{rowActions(row)}</td>
+                    </tr>
                   ))}
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-1">
-                      <button
-                        aria-label={`Edit ${title}`}
-                        onClick={() => openEdit(row)}
-                        className="grid size-9 place-items-center rounded-lg text-[#536B35] hover:bg-[#E9DCC5]/50"
-                      >
-                        <Pencil className="size-4" />
-                      </button>
-                      <button
-                        aria-label={`Delete ${title}`}
-                        onClick={() => void remove(row)}
-                        className="grid size-9 place-items-center rounded-lg text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {loading && (
-                <tr>
-                  <td colSpan={columns.length + 1} className="px-5 py-14 text-center text-[#777968]">
-                    Loading records…
-                  </td>
-                </tr>
-              )}
-              {!loading && visibleRows.length === 0 && (
-                <tr>
-                  <td colSpan={columns.length + 1} className="px-5 py-14 text-center text-[#777968]">
-                    No records found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  {(loading || visibleRows.length === 0) && (
+                    <tr>
+                      <td colSpan={columns.length + 1} className="px-5 py-14 text-center text-[#777968]">
+                        {emptyText}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          }
+          grid={
+            loading || visibleRows.length === 0 ? (
+              <p className="px-5 py-14 text-center text-sm text-[#777968]">{emptyText}</p>
+            ) : (
+              <ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                {visibleRows.map((row) => (
+                  <li key={row.id} className="flex min-w-0 flex-col rounded-2xl border border-[#28321F]/10 p-4">
+                    <dl className="space-y-2 text-sm">
+                      {columns.map((column) => (
+                        <div key={column.key} className="flex items-center justify-between gap-3">
+                          <dt className="shrink-0 text-xs text-[#777968]">{column.label}</dt>
+                          <dd className="min-w-0 break-words text-right">{renderCell(row, column, toggleRowField, togglingKey)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="mt-3 border-t border-[#28321F]/8 pt-2">{rowActions(row)}</div>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        />
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-[#28321F]/8 px-5 py-3 text-sm">
             <button

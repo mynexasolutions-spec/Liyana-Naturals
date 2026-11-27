@@ -10,19 +10,59 @@ import React, {
 } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { DEFAULT_SHIPPING, type ShippingSettings } from "@/lib/checkout/pricing";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
 import {
   authEmailSchema,
   authPasswordSchema,
   firstValidationMessage,
   loginPasswordSchema,
-  registerInputSchema,
+  signupVerificationSchema,
 } from "@/lib/auth/schema";
-import type { AuthUser, Product } from "@/types";
+import { defaultVariant, findVariant, imagesFor } from "@/lib/products/variants";
+import { EMPTY_CONTACT, type StoreContact } from "@/lib/settings/contact";
+import type { AuthUser, Product, ProductVariant } from "@/types";
 
 export interface CartEntry {
   productId: string;
+  /** The chosen size, for a product that has sizes. */
+  variantId?: string;
   quantity: number;
+}
+
+/** A cart entry with the product details needed to show it. */
+export interface CartLine {
+  key: string;
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  product: Product;
+  variant?: ProductVariant;
+  unitPrice: number;
+  lineTotal: number;
+  image?: string;
+}
+
+const isSameLine = (entry: CartEntry, productId: string, variantId?: string) =>
+  entry.productId === productId && (entry.variantId ?? "") === (variantId ?? "");
+
+/** Keeps a saved cart in step with the sizes the shop offers now. */
+function reconcileCart(entries: CartEntry[], products: Product[]): CartEntry[] {
+  const merged: CartEntry[] = [];
+  for (const entry of entries) {
+    const product = products.find((item) => item.id === entry.productId);
+    let variantId = entry.variantId;
+    if (product) {
+      if (!product.variants?.length) variantId = undefined;
+      else if (!variantId) variantId = defaultVariant(product)?.id;
+      // Never swap in another size: the customer must choose it again.
+      else if (!findVariant(product, variantId)) continue;
+    }
+    const existing = merged.find((item) => isSameLine(item, entry.productId, variantId));
+    if (existing) existing.quantity += entry.quantity;
+    else merged.push({ productId: entry.productId, ...(variantId ? { variantId } : {}), quantity: entry.quantity });
+  }
+  return merged;
 }
 
 export interface AuthActionResult {
@@ -34,14 +74,19 @@ export interface AuthActionResult {
 
 interface AddToCartOptions {
   openDrawer?: boolean;
+  /** Left out, the product's starting size is added. */
+  variantId?: string;
 }
 
 interface StoreContextValue {
   isHydrated: boolean;
   passwordRecovery: boolean;
   catalogProducts: Product[];
+  shippingSettings: ShippingSettings;
+  contact: StoreContact;
   currentUser: AuthUser | null;
   cartItems: CartEntry[];
+  cartLines: CartLine[];
   wishlistIds: string[];
   totalCartCount: number;
   totalWishlistCount: number;
@@ -55,10 +100,11 @@ interface StoreContextValue {
     quantity?: number,
     options?: AddToCartOptions
   ) => void;
-  updateCartQuantity: (productId: string, quantity: number) => void;
-  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: string, quantity: number, variantId?: string) => void;
+  removeFromCart: (productId: string, variantId?: string) => void;
   clearCart: () => void;
-  getCartItemQty: (productId: string) => number;
+  /** Without a size, counts every size of the product. */
+  getCartItemQty: (productId: string, variantId?: string) => number;
   toggleWishlist: (productId: string) => void;
   removeFromWishlist: (productId: string) => void;
   isInWishlist: (productId: string) => boolean;
@@ -67,11 +113,13 @@ interface StoreContextValue {
     password: string;
     rememberMe?: boolean;
   }) => Promise<AuthActionResult>;
+  requestSignupOtp: (email: string) => Promise<AuthActionResult>;
   registerUser: (input: {
     fullName: string;
     email: string;
     mobile: string;
     password: string;
+    otp: string;
   }) => Promise<AuthActionResult>;
   loginWithGoogle: (input: {
     fullName: string;
@@ -86,6 +134,22 @@ interface StoreContextValue {
 
 const CART_STORAGE_KEY = "liyana_naturals_cart_v1";
 const WISHLIST_STORAGE_KEY = "liyana_naturals_wishlist_v1";
+
+async function postAuthRequest(url: string, payload: unknown): Promise<AuthActionResult> {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = (await response.json().catch(() => ({}))) as { error?: string };
+    return response.ok
+      ? { ok: true }
+      : { ok: false, error: result.error ?? "Something went wrong. Please try again." };
+  } catch {
+    return { ok: false, error: "Network error. Check your connection and try again." };
+  }
+}
 
 function toAuthUser(user: SupabaseUser): AuthUser {
   return {
@@ -109,9 +173,13 @@ const StoreContext = createContext<StoreContextValue | null>(null);
 export function StoreProvider({
   children,
   products = [],
+  shipping = DEFAULT_SHIPPING,
+  contact = EMPTY_CONTACT,
 }: {
   children: React.ReactNode;
   products?: Product[];
+  shipping?: ShippingSettings;
+  contact?: StoreContact;
 }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [cartItems, setCartItems] = useState<CartEntry[]>([]);
@@ -136,6 +204,7 @@ export function StoreProvider({
                 (item) =>
                   item &&
                   typeof item.productId === "string" &&
+                  (item.variantId === undefined || typeof item.variantId === "string") &&
                   typeof item.quantity === "number" &&
                   item.quantity > 0
               )
@@ -180,6 +249,14 @@ export function StoreProvider({
     return () => data.subscription.unsubscribe();
   }, [supabase]);
 
+  useEffect(() => {
+    if (!hydrated || products.length === 0) return;
+    setCartItems((prev) => {
+      const next = reconcileCart(prev, products);
+      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+    });
+  }, [hydrated, products]);
+
   // Persist cart changes
   useEffect(() => {
     if (!hydrated) return;
@@ -210,40 +287,43 @@ export function StoreProvider({
   const addToCart = useCallback(
     (productId: string, quantity = 1, options?: AddToCartOptions) => {
       if (quantity <= 0) return;
+      const product = products.find((item) => item.id === productId);
+      const variantId = product?.variants?.length
+        ? (options?.variantId ?? defaultVariant(product)?.id)
+        : undefined;
       setCartItems((prev) => {
-        const existing = prev.find((item) => item.productId === productId);
-        if (existing) {
+        if (prev.some((item) => isSameLine(item, productId, variantId))) {
           return prev.map((item) =>
-            item.productId === productId
+            isSameLine(item, productId, variantId)
               ? { ...item, quantity: item.quantity + quantity }
               : item
           );
         }
-        return [...prev, { productId, quantity }];
+        return [...prev, { productId, ...(variantId ? { variantId } : {}), quantity }];
       });
       if (options?.openDrawer !== false) {
         setIsCartOpen(true);
       }
     },
-    []
+    [products]
   );
 
   const updateCartQuantity = useCallback(
-    (productId: string, quantity: number) => {
+    (productId: string, quantity: number, variantId?: string) => {
       setCartItems((prev) => {
         if (quantity <= 0) {
-          return prev.filter((item) => item.productId !== productId);
+          return prev.filter((item) => !isSameLine(item, productId, variantId));
         }
         return prev.map((item) =>
-          item.productId === productId ? { ...item, quantity } : item
+          isSameLine(item, productId, variantId) ? { ...item, quantity } : item
         );
       });
     },
     []
   );
 
-  const removeFromCart = useCallback((productId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.productId !== productId));
+  const removeFromCart = useCallback((productId: string, variantId?: string) => {
+    setCartItems((prev) => prev.filter((item) => !isSameLine(item, productId, variantId)));
   }, []);
 
   const clearCart = useCallback(() => {
@@ -251,8 +331,10 @@ export function StoreProvider({
   }, []);
 
   const getCartItemQty = useCallback(
-    (productId: string) =>
-      cartItems.find((item) => item.productId === productId)?.quantity ?? 0,
+    (productId: string, variantId?: string) =>
+      cartItems
+        .filter((item) => (variantId ? isSameLine(item, productId, variantId) : item.productId === productId))
+        .reduce((sum, item) => sum + item.quantity, 0),
     [cartItems]
   );
 
@@ -273,47 +355,47 @@ export function StoreProvider({
     [wishlistIds]
   );
 
+  const requestSignupOtp = useCallback(
+    async (email: string): Promise<AuthActionResult> => {
+      const emailResult = authEmailSchema.safeParse(email.trim().toLowerCase());
+      if (!emailResult.success) {
+        return { ok: false, error: firstValidationMessage(emailResult.error) };
+      }
+      return postAuthRequest("/api/auth/otp", { email: emailResult.data });
+    },
+    []
+  );
+
   const registerUser = useCallback(
     async (input: {
       fullName: string;
       email: string;
       mobile: string;
       password: string;
+      otp: string;
     }): Promise<AuthActionResult> => {
-      const parsed = registerInputSchema.safeParse(input);
+      const parsed = signupVerificationSchema.safeParse(input);
       if (!parsed.success) {
         return { ok: false, error: firstValidationMessage(parsed.error) };
       }
 
-      const normalizedEmail = parsed.data.email.toLowerCase();
+      const email = parsed.data.email.toLowerCase();
+      const created = await postAuthRequest("/api/auth/register", { ...parsed.data, email });
+      if (!created.ok) return created;
+
       try {
-        const { data, error } = await supabase.auth.signUp({
-          email: normalizedEmail,
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
           password: parsed.data.password,
-          options: {
-            emailRedirectTo:
-              typeof window === "undefined"
-                ? undefined
-                : `${window.location.origin}/login`,
-            data: {
-              full_name: parsed.data.fullName,
-              phone: parsed.data.mobile,
-            },
-          },
         });
         if (error) {
-          return { ok: false, error: getAuthErrorMessage(error, "register") };
+          return { ok: false, error: "Account created. Please log in." };
         }
-
-        const publicUser = data.user ? toAuthUser(data.user) : undefined;
-        if (data.session && publicUser) setCurrentUser(publicUser);
-        return {
-          ok: true,
-          user: data.session ? publicUser : undefined,
-          requiresEmailConfirmation: Boolean(data.user && !data.session),
-        };
-      } catch (error) {
-        return { ok: false, error: getAuthErrorMessage(error, "register") };
+        const publicUser = toAuthUser(data.user);
+        setCurrentUser(publicUser);
+        return { ok: true, user: publicUser };
+      } catch {
+        return { ok: false, error: "Account created. Please log in." };
       }
     },
     [supabase]
@@ -428,13 +510,33 @@ export function StoreProvider({
 
   const totalWishlistCount = wishlistIds.length;
 
-  const cartSubtotal = useMemo(
+  const cartLines = useMemo(
     () =>
-      cartItems.reduce((sum, entry) => {
+      cartItems.flatMap((entry): CartLine[] => {
         const product = products.find((p) => p.id === entry.productId);
-        return sum + (product ? product.price * entry.quantity : 0);
-      }, 0),
-    [cartItems]
+        if (!product) return [];
+        const variant = findVariant(product, entry.variantId);
+        // A size that no longer matches is corrected by the effect above.
+        if (product.variants?.length && !variant) return [];
+        const unitPrice = variant?.price ?? product.price;
+        return [{
+          key: `${entry.productId}:${entry.variantId ?? ""}`,
+          productId: entry.productId,
+          variantId: entry.variantId,
+          quantity: entry.quantity,
+          product,
+          variant,
+          unitPrice,
+          lineTotal: unitPrice * entry.quantity,
+          image: imagesFor(product, variant)[0]?.src,
+        }];
+      }),
+    [cartItems, products]
+  );
+
+  const cartSubtotal = useMemo(
+    () => cartLines.reduce((sum, line) => sum + line.lineTotal, 0),
+    [cartLines]
   );
 
   const value = useMemo<StoreContextValue>(
@@ -442,8 +544,11 @@ export function StoreProvider({
       isHydrated: hydrated,
       passwordRecovery,
       catalogProducts: products,
+      shippingSettings: shipping,
+      contact,
       currentUser,
       cartItems,
+      cartLines,
       wishlistIds,
       totalCartCount,
       totalWishlistCount,
@@ -461,6 +566,7 @@ export function StoreProvider({
       removeFromWishlist,
       isInWishlist,
       loginUser,
+      requestSignupOtp,
       registerUser,
       loginWithGoogle,
       resetUserPassword,
@@ -471,8 +577,11 @@ export function StoreProvider({
       hydrated,
       passwordRecovery,
       products,
+      shipping,
+      contact,
       currentUser,
       cartItems,
+      cartLines,
       wishlistIds,
       totalCartCount,
       totalWishlistCount,
@@ -490,6 +599,7 @@ export function StoreProvider({
       removeFromWishlist,
       isInWishlist,
       loginUser,
+      requestSignupOtp,
       registerUser,
       loginWithGoogle,
       resetUserPassword,

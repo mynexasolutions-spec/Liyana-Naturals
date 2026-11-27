@@ -29,6 +29,8 @@ function mergedPayload(row: BlogRow, patch: BlogUpdatePayload): BlogCreatePayloa
   const body = record(row.body);
   const author = record(body.author);
   return {
+    // Left out of an update, the saved sections stay as they are.
+    sections: patch.sections,
     slug: patch.slug ?? text(row.slug, text(body.slug, text(row.section_key).replace(/^blog:/, ""))),
     title: patch.title ?? text(row.title, text(body.title)),
     subtitle: patch.subtitle !== undefined ? patch.subtitle : (row.subtitle === null ? null : text(row.subtitle, text(body.subtitle))),
@@ -67,6 +69,7 @@ function blogBody(payload: BlogCreatePayload, id: string, existing: unknown) {
     tags: payload.tags,
     keyTakeaways: payload.key_takeaways,
     content: payload.content ?? "",
+    ...(payload.sections ? { sections: payload.sections } : {}),
     author: {
       ...record(previous.author),
       name: payload.author_name,

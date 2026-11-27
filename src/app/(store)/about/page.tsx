@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     "Rooted in Nature, Made for Your Skin. Liyana Naturals is a nature-inspired skincare brand blending the purity of traditional botanicals with modern skincare science.",
   openGraph: {
     title: "About Us | Liyana Naturals",
+    images: ["/og.jpg"],
     description:
       "Rooted in Nature, Made for Your Skin. Liyana Naturals is a nature-inspired skincare brand blending the purity of traditional botanicals with modern skincare science.",
   },

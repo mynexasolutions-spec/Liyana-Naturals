@@ -5,14 +5,8 @@ export const siteConfig: SiteConfig = {
   tagline: "Pure, Organic, Botanically Crafted Skincare",
   description:
     "Discover natural skincare, haircare and beauty products with Liyana Naturals.",
-  url: "https://liyananaturals.com",
-  ogImage: "https://liyananaturals.com/og.jpg",
-  announcement: {
-    enabled: true,
-    text: "Free Shipping on orders above ₹999",
-    linkText: "Shop Now",
-    href: "/shop",
-  },
+  url: "https://www.liyananaturals.com",
+  ogImage: "https://www.liyananaturals.com/og.jpg",
   navigation: [
     { label: "Home", href: "/" },
     {
@@ -50,7 +44,6 @@ export const siteConfig: SiteConfig = {
     ],
     help: [
       { label: "Shipping & Delivery", href: "/contact#shipping" },
-      { label: "Returns & Exchanges", href: "/contact#returns" },
       { label: "Order Tracking", href: "/contact#tracking" },
       { label: "FAQs", href: "/contact#faq" },
       { label: "Contact Us", href: "/contact" },
@@ -61,16 +54,5 @@ export const siteConfig: SiteConfig = {
       { label: "Accessibility", href: "/accessibility" },
       { label: "Cookie Policy", href: "/cookies" },
     ],
-  },
-  contact: {
-    email: "info@liyananaturals.com",
-    phone: "+91 91069 72400",
-    address: "Udgir, Maharashtra, India",
-  },
-  social: {
-    instagram: "https://instagram.com/liyananaturals",
-    facebook: "https://facebook.com/liyananaturals",
-    pinterest: "https://pinterest.com/liyananaturals",
-    twitter: "https://youtube.com/@liyananaturals",
   },
 };

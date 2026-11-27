@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, Heart, ShoppingCart, Star, Trash2 } from "lucide-react";
+import { Check, Heart, ImageOff, ShoppingCart, Star, Trash2 } from "lucide-react";
 import { Product } from "@/types";
 import { useStore } from "@/context/StoreContext";
 import { cn } from "@/lib/utils";
@@ -158,18 +158,24 @@ export function StoreProductCard({
           href={`/products/${product.slug}`}
           className="absolute inset-0 block"
         >
-          <Image
-            src={product.images[0]?.src || "/images/products/Fresh_Green.webp"}
-            alt={product.images[0]?.alt || product.name}
-            fill
-            sizes={
-              viewMode === "list"
-                ? "(min-width: 768px) 240px, (min-width: 640px) 208px, 100vw"
-                : "(min-width: 1280px) 22vw, (min-width: 640px) 45vw, 50vw"
-            }
-            className="object-contain object-center group-hover:scale-105 transition-transform duration-500 ease-out"
-            unoptimized
-          />
+          {product.images[0] ? (
+            <Image
+              src={product.images[0].src}
+              alt={product.images[0].alt || product.name}
+              fill
+              sizes={
+                viewMode === "list"
+                  ? "(min-width: 768px) 240px, (min-width: 640px) 208px, 100vw"
+                  : "(min-width: 1280px) 22vw, (min-width: 640px) 45vw, 50vw"
+              }
+              className="object-contain object-center group-hover:scale-105 transition-transform duration-500 ease-out"
+              unoptimized
+            />
+          ) : (
+            <span className="absolute inset-0 grid place-items-center text-[#777968]">
+              <ImageOff aria-label="No picture" className="w-6 h-6" />
+            </span>
+          )}
         </Link>
       </div>
 

@@ -59,6 +59,19 @@ export async function DELETE(
     const { id } = await params;
     if (!isUuid(id)) return NextResponse.json({ error: "Invalid category id." }, { status: 400 });
 
+    // Deleting a category in use would leave its products without one.
+    const products = await admin.supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("category_id", id);
+    if (products.error) return databaseError(products.error, "deleted");
+    if (products.count) {
+      return NextResponse.json(
+        { error: `Move the ${products.count} product(s) in this category to another one first.` },
+        { status: 409 },
+      );
+    }
+
     const { data, error } = await admin.supabase
       .from("categories")
       .delete()

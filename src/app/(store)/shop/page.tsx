@@ -3,7 +3,8 @@ import Image from "next/image";
 import { Container } from "@/components/ui/Container";
 import { ShopCatalog } from "@/components/shop/ShopCatalog";
 import { Newsletter } from "@/components/home/Newsletter";
-import { getStorefrontProducts } from "@/lib/supabase/storefront";
+import { getStorefrontProducts, getStorefrontSettings } from "@/lib/supabase/storefront";
+import { freeShippingOffer, toShippingSettings } from "@/lib/checkout/pricing";
 
 export const metadata: Metadata = {
   title: "Shop All Botanicals",
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
     "Explore Liyana Naturals pure organic skincare and haircare essentials crafted with clean, safe, and effective botanical ingredients.",
   openGraph: {
     title: "Shop All Products | Liyana Naturals",
+    images: ["/og.jpg"],
     description:
       "Pure skincare and haircare essentials made with clean, safe, and effective natural ingredients.",
   },
@@ -35,11 +37,8 @@ const trustHighlights = [
   },
   {
     icon: "/images/icons/shopicons/05-free-shipping-truck.svg",
-    label: "Free Shipping Above ₹999",
-  },
-  {
-    icon: "/images/icons/shopicons/06-easy-returns.svg",
-    label: "Easy Returns",
+    // Filled in from the store settings; hidden when there is no free delivery.
+    label: "",
   },
 ];
 
@@ -53,7 +52,14 @@ interface ShopPageProps {
 
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const { category, tag, search } = await searchParams;
-  const storefrontProducts = await getStorefrontProducts();
+  const [storefrontProducts, settings] = await Promise.all([
+    getStorefrontProducts(),
+    getStorefrontSettings(),
+  ]);
+  const shippingOffer = freeShippingOffer(toShippingSettings(settings)) ?? "";
+  const highlights = trustHighlights
+    .map((item) => (item.label ? item : { ...item, label: shippingOffer }))
+    .filter((item) => item.label);
 
   return (
     <main className="min-h-screen bg-[#FBF7EE] text-[#28321F] overflow-x-hidden">
@@ -152,10 +158,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           style={{ animationDuration: "26s" }}
         >
           {[
-            ...trustHighlights,
-            ...trustHighlights,
-            ...trustHighlights,
-            ...trustHighlights,
+            ...highlights,
+            ...highlights,
+            ...highlights,
+            ...highlights,
           ].map((item, idx) => (
             <div
               key={`${item.label}-${idx}`}
@@ -181,7 +187,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
       {/* 
         ========================================================================
-        3 & 4. INTERACTIVE SHOP CATALOG + BUILD YOUR OWN COMBO
+        3. INTERACTIVE SHOP CATALOG
         ========================================================================
       */}
       <ShopCatalog
@@ -197,7 +203,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         5. EXISTING NEWSLETTER BANNER
         ========================================================================
       */}
-      <Newsletter className="lg:mt-0" />
+      <Newsletter className="lg:mt-0" source="shop" />
     </main>
   );
 }

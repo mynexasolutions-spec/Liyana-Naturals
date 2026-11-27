@@ -60,6 +60,20 @@ export async function validateRelations(
   return null;
 }
 
+/** Replaces a product's sizes in one database step. */
+export async function saveVariants(
+  supabase: SupabaseAdminClient,
+  productId: string,
+  variants: NonNullable<ProductCreatePayload["variants"]>,
+): Promise<boolean> {
+  const { error } = await supabase.rpc("save_product_variants", {
+    p_product_id: productId,
+    p_variants: variants,
+  });
+  if (error) console.error("Product sizes save failed", { code: error.code, message: error.message });
+  return !error;
+}
+
 export async function requireProductAdmin() {
   const session = await getAdminSession();
   if (!session) return null;

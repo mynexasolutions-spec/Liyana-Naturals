@@ -5,9 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
   CircleHelp,
+  FileText,
   LayoutDashboard,
   Leaf,
   LogOut,
+  Mail,
   Megaphone,
   Menu,
   Package,
@@ -15,6 +17,7 @@ import {
   ShoppingBag,
   Star,
   Tags,
+  Ticket,
   Users,
   X,
 } from "lucide-react";
@@ -26,11 +29,14 @@ const navigation = [
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Categories", href: "/admin/categories", icon: Tags },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
+  { label: "Coupons", href: "/admin/coupons", icon: Ticket },
   { label: "Customers", href: "/admin/customers", icon: Users },
   { label: "Reviews", href: "/admin/reviews", icon: Star },
   { label: "Inquiries", href: "/admin/inquiries", icon: CircleHelp },
+  { label: "Subscribers", href: "/admin/subscribers", icon: Mail },
   { label: "Homepage", href: "/admin/banners", icon: Megaphone },
   { label: "Blogs", href: "/admin/blogs", icon: BookOpen },
+  { label: "Pages", href: "/admin/pages", icon: FileText },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

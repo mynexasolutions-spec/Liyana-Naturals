@@ -5,18 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { Phone, Mail, MapPin, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
-import { siteConfig } from "@/config/site";
-import type { StorefrontSettings } from "@/lib/supabase/storefront";
+import { telHref, toStoreContact } from "@/lib/settings/contact";
+import type { PageLink, StorefrontSettings } from "@/lib/supabase/storefront";
 
-export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
-  const globalSocial = settings?.global.social;
-  const social = globalSocial && typeof globalSocial === "object" ? globalSocial as Record<string, unknown> : {};
-  const facebook = typeof social.facebook === "string" ? social.facebook : siteConfig.social.facebook;
-  const instagram = typeof social.instagram === "string" ? social.instagram : siteConfig.social.instagram;
-  const pinterest = typeof social.pinterest === "string" ? social.pinterest : siteConfig.social.pinterest;
-  const phone = settings?.support_phone ?? siteConfig.contact.phone;
-  const email = settings?.support_email ?? siteConfig.contact.email;
-  const address = settings?.address ?? siteConfig.contact.address;
+export function Footer({ settings, pages = [] }: { settings?: StorefrontSettings | null; pages?: PageLink[] }) {
+  const { phone, email, address, social } = toStoreContact(settings, settings?.global);
+  const { facebook, instagram, youtube, pinterest } = social;
+  // A long address wraps after the "@" instead of being cut off.
+  const [emailName, emailDomain] = email.split("@");
 
   return (
     <footer
@@ -69,7 +65,7 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
           {/* 
             Column 1: Header's Logo + Tagline + Social Icons
           */}
-          <div className="w-full lg:w-[260px] xl:w-[280px] shrink-0 space-y-4">
+          <div className="w-full lg:w-[220px] xl:w-[270px] shrink-0 space-y-4">
             {/* Exact Logo from Header */}
             <div className="inline-block bg-white rounded-[5px] px-[20px] py-[10px]">
               <Logo size="md" />
@@ -82,6 +78,7 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
             {/* Social Media Circular Buttons with Modern Luxury Styling & Official Brand Colors */}
             <div className="flex items-center gap-3 pt-2">
               {/* Facebook */}
+              {facebook && (
               <a
                 href={facebook}
                 target="_blank"
@@ -97,8 +94,10 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
               </a>
+              )}
 
               {/* Instagram */}
+              {instagram && (
               <a
                 href={instagram}
                 target="_blank"
@@ -140,10 +139,12 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
                   <circle cx="17.2" cy="6.8" r="1.3" fill="url(#instaModernGrad)" />
                 </svg>
               </a>
+              )}
 
               {/* YouTube */}
+              {youtube && (
               <a
-                href="https://youtube.com/@liyananaturals"
+                href={youtube}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Subscribe to our YouTube"
@@ -157,8 +158,10 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
                   <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                 </svg>
               </a>
+              )}
 
               {/* Pinterest */}
+              {pinterest && (
               <a
                 href={pinterest}
                 target="_blank"
@@ -174,6 +177,7 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
                   <path d="M12 0a12 12 0 0 0-4.37 23.18c-.03-.97 0-2.14.23-3.13l1.45-6.14s-.36-.72-.36-1.78c0-1.67.97-2.92 2.17-2.92 1.02 0 1.52.77 1.52 1.69 0 1.03-.66 2.57-1 4-.28 1.2.6 2.18 1.78 2.18 2.14 0 3.79-2.26 3.79-5.52 0-2.89-2.07-4.9-5.04-4.9a5.24 5.24 0 0 0-5.46 5.27c0 1.03.4 2.14.9 2.75.1.12.11.23.08.35l-.33 1.37c-.05.23-.18.28-.41.17-1.53-.71-2.49-2.95-2.49-4.75 0-3.87 2.81-7.42 8.11-7.42 4.26 0 7.57 3.03 7.57 7.09 0 4.23-2.67 7.64-6.37 7.64-1.24 0-2.41-.65-2.81-1.42l-.77 2.92c-.28 1.07-1.03 2.41-1.54 3.23A12 12 0 1 0 12 0z" />
                 </svg>
               </a>
+              )}
             </div>
           </div>
 
@@ -181,7 +185,7 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
             Unified Middle Div: Quick Links + Customer Care + Contact Us
             Grouped into ONE cohesive responsive unit
           */}
-          <div className="w-full lg:flex-1 grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-7 sm:gap-6 lg:gap-8 xl:gap-12">
+          <div className="w-full lg:flex-1 lg:min-w-0 grid grid-cols-2 md:grid-cols-[minmax(max-content,1fr)_minmax(max-content,1fr)_minmax(0,1.6fr)] gap-x-5 gap-y-7 sm:gap-6 lg:gap-8">
             {/* Quick Links */}
             <div>
               <h4 className="font-sans font-bold text-[16px] sm:text-[17px] text-white tracking-tight mb-4">
@@ -237,46 +241,17 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
                 Customer Care
               </h4>
               <ul className="space-y-2.5 font-sans text-[14px] text-[#E5EBD8]">
-                <li>
-                  <Link
-                    href="/contact#faq"
-                    className="hover:text-white transition-colors duration-150 inline-block"
-                  >
-                    FAQs
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/contact#shipping"
-                    className="hover:text-white transition-colors duration-150 inline-block"
-                  >
-                    Shipping Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/contact#returns"
-                    className="hover:text-white transition-colors duration-150 inline-block"
-                  >
-                    Return Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/privacy"
-                    className="hover:text-white transition-colors duration-150 inline-block"
-                  >
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/terms"
-                    className="hover:text-white transition-colors duration-150 inline-block"
-                  >
-                    Terms &amp; Conditions
-                  </Link>
-                </li>
+                {/* The pages published in admin; the contact link stands in until then. */}
+                {(pages.length > 0
+                  ? pages.map((page) => ({ href: `/${page.slug}`, label: page.title }))
+                  : [{ href: "/contact", label: "Contact Us" }]
+                ).map((item) => (
+                  <li key={item.href}>
+                    <Link href={item.href} className="hover:text-white transition-colors duration-150 inline-block">
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -286,28 +261,42 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
                 Contact Us
               </h4>
               <ul className="space-y-3 font-sans text-[14px] text-[#E5EBD8]">
-                <li>
-                  <a
-                    href={`tel:${phone.replace(/\s+/g, "")}`}
-                    className="flex items-center gap-2.5 hover:text-white transition-colors duration-150 group"
-                  >
-                    <Phone className="w-4 h-4 text-[#A8B88A] shrink-0 group-hover:text-white transition-colors rotate-[-10deg]" />
-                    <span>{phone}</span>
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href={`mailto:${email}`}
-                    className="flex items-center gap-2.5 hover:text-white transition-colors duration-150 group"
-                  >
-                    <Mail className="w-4 h-4 text-[#A8B88A] shrink-0 group-hover:text-white transition-colors" />
-                    <span className="truncate">{email}</span>
-                  </a>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <MapPin className="w-4 h-4 text-[#A8B88A] shrink-0 mt-0.5" />
-                  <span>{address}</span>
-                </li>
+                {phone && (
+                  <li>
+                    <a
+                      href={telHref(phone)}
+                      className="flex items-center gap-2.5 hover:text-white transition-colors duration-150 group"
+                    >
+                      <Phone className="w-4 h-4 text-[#A8B88A] shrink-0 group-hover:text-white transition-colors rotate-[-10deg]" />
+                      <span>{phone}</span>
+                    </a>
+                  </li>
+                )}
+                {email && (
+                  <li>
+                    <a
+                      href={`mailto:${email}`}
+                      className="flex items-start gap-2.5 hover:text-white transition-colors duration-150 group"
+                    >
+                      <Mail className="w-4 h-4 text-[#A8B88A] shrink-0 mt-0.5 group-hover:text-white transition-colors" />
+                      <span className="min-w-0 [overflow-wrap:anywhere]">
+                        {emailName}
+                        {emailDomain && (
+                          <>
+                            @<wbr />
+                            {emailDomain}
+                          </>
+                        )}
+                      </span>
+                    </a>
+                  </li>
+                )}
+                {address && (
+                  <li className="flex items-start gap-2.5">
+                    <MapPin className="w-4 h-4 text-[#A8B88A] shrink-0 mt-0.5" />
+                    <span>{address}</span>
+                  </li>
+                )}
               </ul>
             </div>
           </div>
@@ -315,7 +304,7 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
           {/* 
             Column 3 (Right): Secure Payments
           */}
-          <div className="w-full lg:w-[240px] xl:w-[260px] shrink-0 space-y-3">
+          <div className="w-full lg:w-[200px] xl:w-[250px] shrink-0 space-y-3">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#A8B88A]" />
               <h4 className="font-sans font-bold text-[16px] sm:text-[17px] text-white tracking-tight">
@@ -347,7 +336,7 @@ export function Footer({ settings }: { settings?: StorefrontSettings | null }) {
           ======================================================================
         */}
         <div className="border-t border-white/15 pt-6 sm:pt-8 flex flex-col sm:flex-row items-center justify-between text-[13px] sm:text-[13.5px] text-[#FBF7EE]/80 gap-3 font-sans">
-          <p>© 2024 Liyana Naturals. All rights reserved.</p>
+          <p suppressHydrationWarning>© {new Date().getFullYear()} Liyana Naturals. All rights reserved.</p>
           <p className="flex items-center gap-1.5">
             <span>Made with</span>
             <span className="text-red-500 inline-block animate-pulse">❤️</span>

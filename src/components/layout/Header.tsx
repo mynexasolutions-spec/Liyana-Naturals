@@ -28,6 +28,8 @@ import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 import { siteConfig } from "@/config/site";
 import { useStore } from "@/context/StoreContext";
+import { amountToFreeShipping, freeShippingOffer } from "@/lib/checkout/pricing";
+import { telHref, toStoreContact } from "@/lib/settings/contact";
 import type { StorefrontSettings } from "@/lib/supabase/storefront";
 import type { ProductCategory } from "@/types";
 
@@ -177,7 +179,7 @@ function DesktopNavigation({ categories = [] }: { categories?: ProductCategory[]
                     </div>
                   </div>
 
-                  {/* Right Column: Featured Botanicals & Combo Banner */}
+                  {/* Right Column: Featured Botanicals */}
                   <div className="col-span-7 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-[#28321F]/8">
@@ -232,23 +234,6 @@ function DesktopNavigation({ categories = [] }: { categories?: ProductCategory[]
                         ))}
                       </div>
                     </div>
-
-                    {/* Mini Combo Promo Strip */}
-                    <Link
-                      href="/shop"
-                      onClick={() => setIsShopOpen(false)}
-                      className="mt-3 p-3.5 rounded-[5px] bg-[#1D3214] text-[#FBF7EE] flex items-center justify-between gap-3 group hover:bg-[#263D18] transition-colors"
-                    >
-                      <div>
-                        <span className="text-[11px] uppercase tracking-wider text-[#A8B88A] font-semibold block">
-                          Bundle &amp; Save
-                        </span>
-                        <span className="text-sm font-semibold text-white">
-                          Build Your Own Combo — Up to 20% Off
-                        </span>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-[#A8B88A] group-hover:translate-x-1 transition-transform shrink-0" />
-                    </Link>
                   </div>
                 </div>
               </div>
@@ -295,7 +280,7 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
   const {
     catalogProducts,
     currentUser,
-    cartItems,
+    cartLines,
     wishlistIds,
     totalCartCount,
     totalWishlistCount,
@@ -308,11 +293,17 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
     clearCart,
     addToCart,
     removeFromWishlist,
+    shippingSettings,
   } = useStore();
+  const shippingOffer = freeShippingOffer(shippingSettings);
+  const toFreeShipping = amountToFreeShipping(cartSubtotal, shippingSettings) ?? 0;
+  const freeShippingProgress =
+    toFreeShipping === 0 || !shippingSettings.freeFrom
+      ? 100
+      : Math.min(100, Math.round((cartSubtotal / shippingSettings.freeFrom) * 100));
   const products = catalogProducts;
   const navigation = navigationForCategories(categories);
-  const supportPhone = settings?.support_phone ?? siteConfig.contact.phone;
-  const supportEmail = settings?.support_email ?? siteConfig.contact.email;
+  const { phone: supportPhone, email: supportEmail } = toStoreContact(settings, settings?.global);
 
   // Focus search input when popup opens
   useEffect(() => {
@@ -368,6 +359,7 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
   }, []);
 
   const wishlistedProducts = products.filter((p) => wishlistIds.includes(p.id));
+  const searchCategories = categories.filter((category) => products.some((p) => p.categorySlug === category.slug));
 
   const filteredProducts = searchQuery.trim()
     ? products.filter((p) => {
@@ -643,7 +635,7 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
 
               {/* Account / Login Button */}
               <Link
-                href="/login"
+                href={currentUser ? "/account" : "/login"}
                 aria-label={currentUser ? `Account (${currentUser.fullName})` : "Login or Register"}
                 className="relative w-10 h-10 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] flex items-center justify-center shadow-2xs transition-colors"
               >
@@ -712,7 +704,7 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search aloe soap, hair oil, face serum..."
+                    placeholder="Search products..."
                     className="w-full pl-10 sm:pl-11 pr-9 py-2.5 sm:py-3 rounded-[5px] bg-white border border-[#28321F]/15 text-sm sm:text-base text-[#28321F] placeholder:text-[#777968] focus:outline-none focus:border-[#263D18] focus:ring-1 focus:ring-[#263D18]"
                   />
                   {searchQuery && (
@@ -800,39 +792,35 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
                         No botanical products found for &ldquo;{searchQuery}&rdquo;
                       </p>
                       <p className="text-xs text-[#777968]">
-                        Try searching for Soap, Hair Oil, Face Cream, or Serum.
+                        Try another product name or category.
                       </p>
                     </div>
                   )}
                 </>
               ) : (
                 <div className="space-y-4">
-                  <div>
+                  {/* The admin's categories that have products. */}
+                  {searchCategories.length > 0 && (
+                  <div className="pb-3 border-b border-[#28321F]/8">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#536B35] block mb-2.5">
-                      Popular Searches
+                      Categories
                     </span>
                     <div className="flex flex-wrap gap-2">
-                      {[
-                        "Avocado Soap",
-                        "Hair Growth Oil",
-                        "Nourishing Face Cream",
-                        "Herbal Face Serum",
-                        "Herbal Hair Mask",
-                        "Hair Growth Serum",
-                      ].map((tag) => (
+                      {searchCategories.map((category) => (
                         <button
-                          key={tag}
+                          key={category.id}
                           type="button"
-                          onClick={() => setSearchQuery(tag)}
+                          onClick={() => setSearchQuery(category.name)}
                           className="px-3 py-1.5 rounded-[5px] bg-[#EAF1DF]/75 text-xs font-semibold text-[#263D18] hover:bg-[#263D18] hover:text-white transition-colors cursor-pointer"
                         >
-                          {tag}
+                          {category.name}
                         </button>
                       ))}
                     </div>
                   </div>
+                  )}
 
-                  <div className="pt-3 border-t border-[#28321F]/8">
+                  <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-[#536B35] block mb-2.5">
                       Featured Products
                     </span>
@@ -926,36 +914,35 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
         </div>
 
         {/* Free Shipping Progress Strip */}
-        <div className="px-4 sm:px-5 py-2.5 bg-[#EAF1DF]/75 border-b border-[#A8B88A]/35">
-          <div className="flex items-center justify-between text-[11.5px] font-semibold text-[#263D18] mb-1.5">
-            <span className="inline-flex items-center gap-1.5">
-              <Truck className="w-3.5 h-3.5 text-[#536B35]" />
-              {cartSubtotal >= 999
-                ? "Free shipping unlocked on your order!"
-                : `Add ₹${999 - cartSubtotal} more for Free Shipping`}
-            </span>
-            <span>{Math.min(100, Math.round((cartSubtotal / 999) * 100))}%</span>
+        {shippingOffer && (
+          <div className="px-4 sm:px-5 py-2.5 bg-[#EAF1DF]/75 border-b border-[#A8B88A]/35">
+            <div className="flex items-center justify-between text-[11.5px] font-semibold text-[#263D18] mb-1.5">
+              <span className="inline-flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-[#536B35]" />
+                {toFreeShipping === 0
+                  ? "Free shipping unlocked on your order!"
+                  : `Add ₹${toFreeShipping} more for Free Shipping`}
+              </span>
+              <span>{freeShippingProgress}%</span>
+            </div>
+            <div className="w-full h-1.5 rounded-[5px] bg-white overflow-hidden">
+              <div
+                className="h-full bg-[#263D18] transition-all duration-300"
+                style={{ width: `${freeShippingProgress}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full h-1.5 rounded-[5px] bg-white overflow-hidden">
-            <div
-              className="h-full bg-[#263D18] transition-all duration-300"
-              style={{
-                width: `${Math.min(100, Math.round((cartSubtotal / 999) * 100))}%`,
-              }}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Scrollable Cart Items */}
         <div className="flex-1 overflow-y-auto scrollbar-thin p-4 sm:p-5 space-y-3">
-          {cartItems.length > 0 ? (
-            cartItems.map((entry) => {
-              const product = products.find((p) => p.id === entry.productId);
-              if (!product) return null;
+          {cartLines.length > 0 ? (
+            cartLines.map((entry) => {
+              const { product } = entry;
 
               return (
                 <div
-                  key={entry.productId}
+                  key={entry.key}
                   className="flex items-center gap-3 p-3 rounded-[5px] bg-white border border-[#28321F]/8 shadow-2xs"
                 >
                   <Link
@@ -964,10 +951,7 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
                     className="relative w-16 h-16 rounded-[5px] bg-[#FAF7F0] border border-[#28321F]/8 shrink-0 overflow-hidden"
                   >
                     <Image
-                      src={
-                        product.images[0]?.src ||
-                        "/images/products/Fresh_Green.webp"
-                      }
+                      src={entry.image || "/images/products/Fresh_Green.webp"}
                       alt={product.name}
                       fill
                       sizes="64px"
@@ -987,6 +971,11 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
                     >
                       {product.name}
                     </Link>
+                    {entry.variant && (
+                      <span className="text-[11px] font-medium text-[#777968] block">
+                        Size: {entry.variant.name}
+                      </span>
+                    )}
 
                     <div className="flex items-center justify-between gap-2 mt-2">
                       <div className="inline-flex items-center rounded-[5px] border border-[#28321F]/15 bg-[#FAF7F0]">
@@ -995,7 +984,8 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
                           onClick={() =>
                             updateCartQuantity(
                               entry.productId,
-                              entry.quantity - 1
+                              entry.quantity - 1,
+                              entry.variantId
                             )
                           }
                           aria-label={`Decrease ${product.name} quantity`}
@@ -1011,7 +1001,8 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
                           onClick={() =>
                             updateCartQuantity(
                               entry.productId,
-                              entry.quantity + 1
+                              entry.quantity + 1,
+                              entry.variantId
                             )
                           }
                           aria-label={`Increase ${product.name} quantity`}
@@ -1022,14 +1013,14 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
                       </div>
 
                       <span className="text-sm font-bold text-[#263D18]">
-                        ₹{product.price * entry.quantity}
+                        ₹{entry.lineTotal}
                       </span>
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => removeFromCart(entry.productId)}
+                    onClick={() => removeFromCart(entry.productId, entry.variantId)}
                     aria-label={`Remove ${product.name} from bag`}
                     className="p-1.5 rounded-[5px] text-[#777968] hover:text-[#C2652B] hover:bg-[#FFF5F2] transition-colors self-start cursor-pointer"
                   >
@@ -1062,7 +1053,7 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
         </div>
 
         {/* Sticky Drawer Footer */}
-        {cartItems.length > 0 && (
+        {cartLines.length > 0 && (
           <div className="p-4 sm:p-5 border-t border-[#28321F]/10 bg-white/95 space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-[#555C4A] font-medium">Subtotal</span>
@@ -1264,10 +1255,12 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
 
           {/* Quick Perks */}
           <div className="pt-3 mt-3 border-t border-[#28321F]/10 space-y-2">
-            <div className="flex items-center gap-2.5 text-xs text-[#536B35] font-medium p-2.5 rounded-[5px] bg-[#EAF1DF]/65">
-              <Truck className="w-4 h-4 shrink-0 text-[#263D18]" />
-              <span>Free Shipping on orders above ₹999</span>
-            </div>
+            {shippingOffer && (
+              <div className="flex items-center gap-2.5 text-xs text-[#536B35] font-medium p-2.5 rounded-[5px] bg-[#EAF1DF]/65">
+                <Truck className="w-4 h-4 shrink-0 text-[#263D18]" />
+                <span>{shippingOffer}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2.5 text-xs text-[#536B35] font-medium p-2.5 rounded-[5px] bg-[#EAF1DF]/65">
               <ShieldCheck className="w-4 h-4 shrink-0 text-[#263D18]" />
               <span>100% Natural &amp; Safe Certified</span>
@@ -1277,19 +1270,23 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
 
         {/* Drawer Footer */}
         <div className="p-4 border-t border-[#28321F]/10 bg-white/85 space-y-2.5">
-          <a
-            href={`tel:${supportPhone.replace(/[^0-9+]/g, "")}`}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[5px] bg-[#263D18] text-[#FBF7EE] text-xs font-semibold hover:bg-[#1D3214] transition-colors shadow-sm"
-          >
-            <Phone className="w-4 h-4 text-[#A8B88A]" />
-            <span>Call {supportPhone}</span>
-          </a>
-          <div className="flex items-center justify-between text-[11px] text-[#777968] px-1">
-            <span>Customer Care</span>
-            <span className="font-medium text-[#263D18]">
-            {supportEmail}
-            </span>
-          </div>
+          {supportPhone && (
+            <a
+              href={telHref(supportPhone)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[5px] bg-[#263D18] text-[#FBF7EE] text-xs font-semibold hover:bg-[#1D3214] transition-colors shadow-sm"
+            >
+              <Phone className="w-4 h-4 text-[#A8B88A]" />
+              <span>Call {supportPhone}</span>
+            </a>
+          )}
+          {supportEmail && (
+            <div className="flex items-center justify-between text-[11px] text-[#777968] px-1">
+              <span>Customer Care</span>
+              <a href={`mailto:${supportEmail}`} className="font-medium text-[#263D18]">
+                {supportEmail}
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1445,10 +1442,10 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
 
           {/* 5. Account / Login */}
           <Link
-            href="/login"
+            href={currentUser ? "/account" : "/login"}
             className={cn(
               "flex flex-col items-center justify-center gap-1 py-1.5 rounded-[5px] transition-colors active:scale-95",
-              pathname.startsWith("/login") || pathname.startsWith("/register")
+              pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/account")
                 ? "text-[#263D18] font-bold"
                 : "text-[#555C4A] hover:text-[#263D18]"
             )}
@@ -1457,7 +1454,8 @@ export function Header({ settings, categories = [] }: { settings?: StorefrontSet
               className={cn(
                 "relative px-3 py-1 rounded-[5px] transition-colors",
                 (pathname.startsWith("/login") ||
-                  pathname.startsWith("/register")) &&
+                  pathname.startsWith("/register") ||
+                  pathname.startsWith("/account")) &&
                   "bg-[#EAF1DF]"
               )}
             >

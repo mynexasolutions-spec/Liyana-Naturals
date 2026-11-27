@@ -25,6 +25,7 @@ function blogBody(payload: BlogCreatePayload, id: string) {
     tags: payload.tags,
     keyTakeaways: payload.key_takeaways,
     content: payload.content ?? "",
+    ...(payload.sections?.length ? { sections: payload.sections } : {}),
     author: {
       name: payload.author_name,
       role: payload.author_role ?? "",

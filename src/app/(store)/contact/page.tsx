@@ -5,6 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
 import { Container } from "@/components/ui/Container";
+import { useStore } from "@/context/StoreContext";
+import { subscribeToNewsletter } from "@/lib/newsletter/client";
+import { SOCIAL_NETWORKS, telHref, type SocialNetwork } from "@/lib/settings/contact";
 import { cn } from "@/lib/utils";
 
 /**
@@ -204,12 +207,18 @@ const SUBJECT_OPTIONS = [
   "Order Inquiry & Tracking",
   "Product Recommendation & Consultation",
   "Shipping & Delivery Questions",
-  "Returns, Replacements & Refunds",
   "Wholesale & Retail Collaboration",
   "Feedback & Other Inquiries",
 ];
 
 export default function ContactPage() {
+  // Contact details from admin Settings; an empty one is not shown.
+  const { contact } = useStore();
+  const socialLinks = (Object.keys(SOCIAL_NETWORKS) as SocialNetwork[]).flatMap((network) => {
+    const href = contact.social[network];
+    return href ? [{ network, href }] : [];
+  });
+
   // Form State
   const [formData, setFormData] = useState({
     name: "",
@@ -226,6 +235,7 @@ export default function ContactPage() {
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "success" | "error">("idle");
   const [newsletterMsg, setNewsletterMsg] = useState("");
+  const [newsletterSending, setNewsletterSending] = useState(false);
 
   // Handle Contact Form Input Change
   const handleChange = (
@@ -302,11 +312,16 @@ export default function ContactPage() {
   };
 
   // Handle Newsletter Submission
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newsletterEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newsletterEmail)) {
+    if (newsletterSending) return;
+    setNewsletterStatus("idle");
+    setNewsletterSending(true);
+    const problem = await subscribeToNewsletter(newsletterEmail, "contact");
+    setNewsletterSending(false);
+    if (problem) {
       setNewsletterStatus("error");
-      setNewsletterMsg("Please enter a valid email address.");
+      setNewsletterMsg(problem);
       return;
     }
 
@@ -755,6 +770,7 @@ export default function ContactPage() {
 
                 <div className="space-y-6 sm:space-y-8 mt-12">
                   {/* Item 1: Call Us */}
+                  {contact.phone && (
                   <div className="flex items-center gap-6 group">
                     <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-[5px] bg-[#EAF1DF] border border-[#A8B88A]/35 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 group-hover:bg-[#E2ECCD] transition-all duration-300">
                       <ContactIcon
@@ -767,18 +783,22 @@ export default function ContactPage() {
                         Call Us
                       </h3>
                       <a
-                        href="tel:+919106972400"
+                        href={telHref(contact.phone)}
                         className="font-sans text-sm sm:text-[15px] font-semibold text-[#28321F] hover:text-[#536B35] transition-colors block"
                       >
-                        +91 91069 72400
+                        {contact.phone}
                       </a>
-                      <span className="font-sans text-xs sm:text-[13px] text-[#777968] block mt-0.5">
-                        Mon – Sat, 10:00 AM – 7:00 PM
-                      </span>
+                      {contact.hours && (
+                        <span className="font-sans text-xs sm:text-[13px] text-[#777968] block mt-0.5">
+                          {contact.hours}
+                        </span>
+                      )}
                     </div>
                   </div>
+                  )}
 
                   {/* Item 2: Email Us */}
+                  {contact.email && (
                   <div className="flex items-center gap-6 group">
                     <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-[5px] bg-[#EAF1DF] border border-[#A8B88A]/35 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 group-hover:bg-[#E2ECCD] transition-all duration-300">
                       <ContactIcon
@@ -791,18 +811,17 @@ export default function ContactPage() {
                         Email Us
                       </h3>
                       <a
-                        href="mailto:info@liyananaturals.com"
-                        className="font-sans text-sm sm:text-[15px] font-semibold text-[#28321F] hover:text-[#536B35] transition-colors block"
+                        href={`mailto:${contact.email}`}
+                        className="font-sans text-sm sm:text-[15px] font-semibold text-[#28321F] hover:text-[#536B35] transition-colors block break-all"
                       >
-                        info@liyananaturals.com
+                        {contact.email}
                       </a>
-                      <span className="font-sans text-xs sm:text-[13px] text-[#777968] block mt-0.5">
-                        We usually reply within 24 hours
-                      </span>
                     </div>
                   </div>
+                  )}
 
                   {/* Item 3: Our Office */}
+                  {contact.address && (
                   <div className="flex items-center gap-6 group">
                     <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-[5px] bg-[#EAF1DF] border border-[#A8B88A]/35 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 group-hover:bg-[#E2ECCD] transition-all duration-300">
                       <ContactIcon
@@ -814,68 +833,37 @@ export default function ContactPage() {
                       <h3 className="font-heading text-base sm:text-lg font-bold text-[#263D18] leading-tight mb-1">
                         Our Office
                       </h3>
-                      <address className="not-italic font-sans text-sm sm:text-[15px] font-semibold text-[#28321F] block">
-                        India
+                      <address className="not-italic font-sans text-sm sm:text-[15px] font-semibold text-[#28321F] block whitespace-pre-line">
+                        {contact.address}
                       </address>
-                      <span className="font-sans text-xs sm:text-[13px] text-[#777968] block mt-0.5">
-                        Headquarters &amp; Operations
-                      </span>
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
 
               {/* Follow Us Social Links */}
-              <div className="pt-2 sm:pt-4">
-                <h3 className="font-heading text-xl sm:text-2xl font-bold text-[#263D18] tracking-tight leading-tight mb-3.5">
-                  Follow Us
-                </h3>
-                <div className="flex items-center gap-3">
-                  {/* Instagram */}
-                  <a
-                    href="https://instagram.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Follow Liyana Naturals on Instagram"
-                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-[#28321F]/20 flex items-center justify-center text-[#28321F] hover:bg-[#263D18] hover:text-white hover:border-[#263D18] transition-all duration-300 shadow-2xs hover:scale-105 active:scale-95"
-                  >
-                    <ContactIcon name="instagram" className="w-5 h-5" />
-                  </a>
-
-                  {/* Facebook */}
-                  <a
-                    href="https://facebook.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Follow Liyana Naturals on Facebook"
-                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-[#28321F]/20 flex items-center justify-center text-[#28321F] hover:bg-[#263D18] hover:text-white hover:border-[#263D18] transition-all duration-300 shadow-2xs hover:scale-105 active:scale-95"
-                  >
-                    <ContactIcon name="facebook" className="w-5 h-5" />
-                  </a>
-
-                  {/* YouTube */}
-                  <a
-                    href="https://youtube.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Follow Liyana Naturals on YouTube"
-                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-[#28321F]/20 flex items-center justify-center text-[#28321F] hover:bg-[#263D18] hover:text-white hover:border-[#263D18] transition-all duration-300 shadow-2xs hover:scale-105 active:scale-95"
-                  >
-                    <ContactIcon name="youtube" className="w-5 h-5" />
-                  </a>
-
-                  {/* Pinterest */}
-                  <a
-                    href="https://pinterest.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Follow Liyana Naturals on Pinterest"
-                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-[#28321F]/20 flex items-center justify-center text-[#28321F] hover:bg-[#263D18] hover:text-white hover:border-[#263D18] transition-all duration-300 shadow-2xs hover:scale-105 active:scale-95"
-                  >
-                    <ContactIcon name="pinterest" className="w-5 h-5" />
-                  </a>
+              {socialLinks.length > 0 && (
+                <div className="pt-2 sm:pt-4">
+                  <h3 className="font-heading text-xl sm:text-2xl font-bold text-[#263D18] tracking-tight leading-tight mb-3.5">
+                    Follow Us
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    {socialLinks.map(({ network, href }) => (
+                      <a
+                        key={network}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Follow Liyana Naturals on ${SOCIAL_NETWORKS[network]}`}
+                        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full border border-[#28321F]/20 flex items-center justify-center text-[#28321F] hover:bg-[#263D18] hover:text-white hover:border-[#263D18] transition-all duration-300 shadow-2xs hover:scale-105 active:scale-95"
+                      >
+                        <ContactIcon name={network} className="w-5 h-5" />
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </Container>
@@ -947,9 +935,10 @@ export default function ContactPage() {
                   />
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 rounded-[5px] bg-[#65853B] hover:bg-[#526F2D] text-[#FBF7EE] text-xs sm:text-sm font-semibold tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-95 shrink-0 shadow-xs cursor-pointer"
+                    disabled={newsletterSending}
+                    className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 rounded-[5px] bg-[#65853B] hover:bg-[#526F2D] disabled:opacity-60 text-[#FBF7EE] text-xs sm:text-sm font-semibold tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-95 shrink-0 shadow-xs cursor-pointer"
                   >
-                    Subscribe
+                    {newsletterSending ? "Please wait…" : "Subscribe"}
                   </button>
                 </form>
 

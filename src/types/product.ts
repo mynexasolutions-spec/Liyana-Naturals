@@ -1,3 +1,16 @@
+import type { Badge } from "@/lib/content/badges";
+
+/** One size of a product, with its own price and stock. */
+export interface ProductVariant {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  inStock: boolean;
+  /** Units available. */
+  stock: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -14,12 +27,24 @@ export interface Product {
   images: {
     src: string;
     alt: string;
+    /** Set when the picture belongs to one size only. */
+    size?: string;
   }[];
-  badge?: "Best Seller" | "New" | "Organic" | "Award Winner" | "Sale";
+  /** Empty or missing for a product sold in one size. */
+  variants?: ProductVariant[];
+  seoTitle?: string;
+  seoDescription?: string;
+  faqs?: { question: string; answer: string }[];
+  /** Boxes under the price, written by the admin. */
+  highlights?: Badge[];
+  tags?: string[];
+  /** Units available, all sizes together. */
+  stock?: number;
+  /** Short label on the picture, such as "New" or the admin's own words. */
+  badge?: string;
   isBestSeller?: boolean;
   isFeatured?: boolean;
   inStock: boolean;
-  volume?: string;
   ingredients?: string[];
   benefits?: string[];
   howToUse?: string;

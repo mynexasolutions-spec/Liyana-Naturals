@@ -3,15 +3,27 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Mail, CheckCircle2 } from "lucide-react";
+import { subscribeToNewsletter } from "@/lib/newsletter/client";
+import type { SubscribeSource } from "@/lib/newsletter/schema";
 import { cn } from "@/lib/utils";
 
-export function Newsletter({ className }: { className?: string }) {
+export function Newsletter({ className, source = "home" }: { className?: string; source?: SubscribeSource }) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (sending) return;
+    setError("");
+    setSending(true);
+    const problem = await subscribeToNewsletter(email, source);
+    setSending(false);
+    if (problem) {
+      setError(problem);
+      return;
+    }
     setSubscribed(true);
     setTimeout(() => {
       setEmail("");
@@ -109,11 +121,17 @@ export function Newsletter({ className }: { className?: string }) {
                 />
                 <button
                   type="submit"
-                  className="shrink-0 rounded-[5px] bg-[#547B25] hover:bg-[#46691E] text-white font-sans font-semibold text-[14px] sm:text-[15px] px-6 sm:px-8 py-2.5 sm:py-3 transition-all duration-200 active:scale-95 shadow-xs"
+                  disabled={sending}
+                  className="shrink-0 rounded-[5px] bg-[#547B25] hover:bg-[#46691E] disabled:opacity-60 text-white font-sans font-semibold text-[14px] sm:text-[15px] px-6 sm:px-8 py-2.5 sm:py-3 transition-all duration-200 active:scale-95 shadow-xs"
                 >
-                  Subscribe
+                  {sending ? "Please wait…" : "Subscribe"}
                 </button>
               </form>
+            )}
+            {error && (
+              <p role="alert" className="mt-2 text-xs font-medium text-[#FFC107]">
+                {error}
+              </p>
             )}
           </div>
         </div>

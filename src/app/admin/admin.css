@@ -9,3 +9,94 @@
   --admin-beige: #e9dcc5;
   --admin-sage: #a8b88a;
 }
+
+/*
+ * The thin serif is for the storefront. The admin panel uses one clear font,
+ * heavier headings and darker secondary text.
+ */
+.admin-root :is(h1, h2, h3, h4, h5, h6, .font-serif, .font-heading) {
+  font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  font-variant-numeric: lining-nums;
+}
+
+.admin-root h1.text-3xl {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+}
+
+.admin-root .text-\[\#777968\] {
+  color: #5c614f;
+}
+
+/*
+ * Dropdown lists in the store's colours. This covers every admin <select>.
+ * Browsers that cannot style the list yet keep their own one.
+ */
+@supports (appearance: base-select) {
+  .admin-root select,
+  .admin-root select::picker(select) {
+    appearance: base-select;
+  }
+
+  .admin-root select {
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #fff;
+    color: #28321f;
+    cursor: pointer;
+  }
+
+  .admin-root select:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .admin-root select:focus-visible {
+    border-color: #536b35;
+    outline: 2px solid rgb(83 107 53 / 0.3);
+    outline-offset: 1px;
+  }
+
+  .admin-root select::picker-icon {
+    color: #536b35;
+  }
+
+  .admin-root select::picker(select) {
+    max-height: 18rem;
+    margin-block: 0.35rem;
+    padding: 0.35rem;
+    border: 1px solid rgb(40 50 31 / 0.12);
+    border-radius: 0.875rem;
+    background: #fff;
+    box-shadow: 0 16px 40px rgb(40 50 31 / 0.16);
+  }
+
+  .admin-root select option {
+    gap: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.6rem;
+    outline: none;
+    font-size: 0.875rem;
+    color: #28321f;
+    cursor: pointer;
+  }
+
+  .admin-root select option:hover,
+  .admin-root select option:focus-visible {
+    background: #eaf1df;
+    color: #263d18;
+  }
+
+  .admin-root select option:checked {
+    background: #263d18;
+    color: #fff;
+  }
+
+  /* The tick sits after the text. */
+  .admin-root select option::checkmark {
+    order: 1;
+    margin-inline-start: auto;
+  }
+}

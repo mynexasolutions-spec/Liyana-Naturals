@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     "Explore clean skincare rituals, botanical ingredient guides, and natural haircare stories from Liyana Naturals.",
   openGraph: {
     title: "The Botanical Journal | Liyana Naturals",
+    images: ["/og.jpg"],
     description:
       "Insights on clean skincare rituals, active plant extracts, and holistic well-being by Liyana Naturals.",
   },

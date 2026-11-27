@@ -1,61 +1,32 @@
-import { ModuleTable } from "@/components/admin/ModuleTable";
+import { BannerManager, type AdminBanner } from "@/components/admin/BannerManager";
+import { requireAdminPage } from "@/lib/admin/server";
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export default async function BannersPage() {
+  const { supabase } = await requireAdminPage();
+  const countOf = (table: string) => supabase.from(table).select("id", { count: "exact", head: true });
 
-export default function BannersPage() {
+  const [banners, categories, bestSellers, reviews, blogs] = await Promise.all([
+    supabase
+      .from("homepage_banners")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false }),
+    countOf("categories").eq("is_active", true).eq("is_featured", true),
+    countOf("products").eq("is_active", true).eq("is_best_seller", true),
+    countOf("reviews").eq("status", "approved").eq("show_on_home", true),
+    countOf("site_content").like("section_key", "blog:%").eq("is_published", true).eq("is_featured", true),
+  ]);
+  const failure = banners.error ?? categories.error ?? bestSellers.error ?? reviews.error ?? blogs.error;
+  if (failure) throw new Error(`Homepage could not be loaded: ${failure.message}`);
+
   return (
-    <ModuleTable
-      table="homepage_banners"
-      title="Homepage Banners"
-      mutationEndpoint="/api/admin/banners"
-      searchKeys={["title", "subtitle", "link_url"]}
-      columns={[
-        { key: "title", label: "Banner" },
-        { key: "desktop_image_url", label: "Desktop", format: "image" },
-        { key: "mobile_image_url", label: "Mobile", format: "image" },
-        { key: "link_url", label: "Link" },
-        { key: "sort_order", label: "Sort" },
-        { key: "is_active", label: "Status", format: "status" },
-      ]}
-      emptyFields={[
-        { key: "title", label: "Title", required: true },
-        { key: "subtitle", label: "Subtitle", type: "textarea" },
-        {
-          key: "desktop_image_url",
-          label: "Desktop hero image",
-          type: "image",
-          assetIdKey: "desktop_image_file_id",
-          syncKeys: { url: "image_url", fileId: "image_file_id" },
-          folder: "/liyana-naturals/banners/desktop",
-          required: true,
-          imageValidation: {
-            maxBytes: MAX_IMAGE_BYTES,
-            minWidth: 1200,
-            minHeight: 500,
-            minAspectRatio: 1.6,
-            maxAspectRatio: 3,
-            helpText: "JPG, PNG, or WebP · at least 1200 × 500 · 10 MB max",
-          },
-        },
-        {
-          key: "mobile_image_url",
-          label: "Mobile hero image",
-          type: "image",
-          assetIdKey: "mobile_image_file_id",
-          folder: "/liyana-naturals/banners/mobile",
-          required: true,
-          imageValidation: {
-            maxBytes: MAX_IMAGE_BYTES,
-            minWidth: 360,
-            minHeight: 480,
-            minAspectRatio: 0.45,
-            maxAspectRatio: 1.1,
-            helpText: "JPG, PNG, or WebP · at least 360 × 480 · 10 MB max",
-          },
-        },
-        { key: "link_url", label: "Link URL" },
-        { key: "sort_order", label: "Sort order", type: "number" },
-        { key: "is_active", label: "Active", type: "boolean" },
+    <BannerManager
+      banners={(banners.data ?? []) as AdminBanner[]}
+      sections={[
+        { label: "Categories", count: categories.count ?? 0, href: "/admin/categories", hint: "Switch on “Homepage”" },
+        { label: "Best sellers", count: bestSellers.count ?? 0, href: "/admin/products", hint: "Switch on “Best seller”" },
+        { label: "Testimonials", count: reviews.count ?? 0, href: "/admin/reviews", hint: "Switch on “Home page”" },
+        { label: "Featured blogs", count: blogs.count ?? 0, href: "/admin/blogs", hint: "Switch on “Featured”" },
       ]}
     />
   );

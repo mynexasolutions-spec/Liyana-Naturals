@@ -36,6 +36,7 @@ export function AuthPortalClient({
     totalCartCount,
     totalWishlistCount,
     loginUser,
+    requestSignupOtp,
     registerUser,
     resetUserPassword,
     updateUserPassword,
@@ -61,6 +62,11 @@ export function AuthPortalClient({
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Email verification step
+  const [otpSentTo, setOtpSentTo] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resendSeconds, setResendSeconds] = useState(0);
+
   // Feedback State
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
@@ -76,8 +82,66 @@ export function AuthPortalClient({
   const [isResetSubmitting, setIsResetSubmitting] = useState(false);
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const timer = window.setTimeout(() => setResendSeconds((value) => value - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendSeconds]);
+
+  const sendCode = async (email: string) => {
+    setFormError("");
+    setFormSuccess("");
+    setIsSubmitting(true);
+    try {
+      const res = await requestSignupOtp(email);
+      if (!res.ok) {
+        setFormError(res.error ?? "Unable to send the code.");
+        return;
+      }
+      setOtpSentTo(email);
+      setOtp("");
+      setResendSeconds(60);
+      setFormSuccess("We sent a 6-digit code. Check your inbox and spam folder.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setFormError("");
+    setFormSuccess("");
+    if (!/^\d{6}$/.test(otp)) {
+      setFormError("Enter the 6-digit code from your email.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await registerUser({
+        fullName: fullName.trim(),
+        email: otpSentTo,
+        mobile: mobile.trim(),
+        password: registerPassword,
+        otp,
+      });
+      if (!res.ok) {
+        setFormError(res.error ?? "Unable to create account.");
+        return;
+      }
+      setOtpSentTo("");
+      setOtp("");
+      setFormSuccess("Account created successfully! Welcome to Liyana Naturals.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const switchMode = (nextMode: "login" | "register") => {
     setMode(nextMode);
+    setOtpSentTo("");
+    setOtp("");
     setFormError("");
     setFormSuccess("");
   };
@@ -177,28 +241,7 @@ export function AuthPortalClient({
     }
 
     if (isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      const res = await registerUser({
-        fullName: fullName.trim(),
-        email: registerEmail.trim(),
-        mobile: mobile.trim(),
-        password: registerPassword,
-      });
-
-      if (!res.ok) {
-        setFormError(res.error ?? "Unable to create account.");
-        return;
-      }
-
-      setFormSuccess(
-        res.requiresEmailConfirmation
-          ? "Account created. Check your email to confirm it before logging in."
-          : "Account created successfully! Welcome to Liyana Naturals.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    await sendCode(registerEmail.trim().toLowerCase());
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
@@ -462,12 +505,18 @@ export function AuthPortalClient({
                 </Link>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <div className="space-y-2.5 pt-1">
                 <Link
                   href="/shop"
-                  className="flex-1 py-2.5 px-3 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-colors shadow-xs"
+                  className="w-full h-11 px-4 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-sm font-semibold flex items-center justify-center transition-colors shadow-xs"
                 >
-                  <span>Continue Shopping</span>
+                  Continue Shopping
+                </Link>
+                <Link
+                  href="/account"
+                  className="w-full h-11 px-4 rounded-full border border-[#263D18]/25 bg-white hover:bg-[#FBF7EE] text-[#263D18] text-sm font-semibold flex items-center justify-center transition-colors"
+                >
+                  My Orders &amp; Profile
                 </Link>
                 <button
                   type="button"
@@ -475,10 +524,10 @@ export function AuthPortalClient({
                     logoutUser();
                     setFormSuccess("");
                   }}
-                  className="relative py-2.5 px-4 rounded-full border border-[#28321F]/15 bg-white hover:bg-[#FFF5F2] text-[#28321F] hover:text-[#C2652B] text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-colors cursor-pointer"
+                  className="mx-auto flex h-10 items-center justify-center gap-2 px-5 rounded-full text-sm font-semibold text-[#777968] hover:bg-[#FFF5F2] hover:text-[#C2652B] transition-colors cursor-pointer"
                 >
-                  <LogOut className="absolute left-4 w-4 h-4" />
-                  <span>Sign Out</span>
+                  <LogOut className="w-4 h-4 shrink-0" />
+                  Sign Out
                 </button>
               </div>
             </div>
@@ -624,6 +673,83 @@ export function AuthPortalClient({
                   Register Now
                 </button>
               </p>
+            </div>
+          ) : otpSentTo ? (
+            /* ================================================================ */
+            /* EMAIL VERIFICATION VIEW                                          */
+            /* ================================================================ */
+            <div className="w-full">
+              <div className="text-center mb-3.5">
+                <h1 className="font-heading text-2xl sm:text-[30px] font-bold text-[#263D18] tracking-tight leading-tight">
+                  Verify Your Email
+                </h1>
+                <p className="font-sans text-xs text-[#777968] mt-0.5 leading-snug break-words">
+                  Enter the code sent to {otpSentTo}.
+                </p>
+              </div>
+
+              {formError && (
+                <div
+                  role="alert"
+                  className="mb-3 px-3 py-2 rounded-xl bg-[#FFF5F2] border border-[#C2652B]/30 text-[#C2652B] text-xs font-medium flex items-center gap-2"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {formSuccess && (
+                <div
+                  role="status"
+                  className="mb-3 px-3 py-2 rounded-xl bg-[#EAF1DF] border border-[#536B35]/30 text-[#263D18] text-xs font-medium flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#3C6E26] shrink-0" />
+                  <span>{formSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleOtpSubmit} className="space-y-2.5">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => {
+                    setOtp(e.target.value.replace(/\D/g, ""));
+                    if (formError) setFormError("");
+                  }}
+                  placeholder="000000"
+                  aria-label="6-digit verification code"
+                  autoFocus
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#FBF7EE]/55 border border-[#28321F]/15 text-center text-xl font-bold tracking-[0.5em] text-[#263D18] placeholder:text-[#777968]/40 focus:bg-white focus:outline-none focus:border-[#536B35] focus:ring-2 focus:ring-[#536B35]/15 transition-all"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 sm:py-3 px-5 rounded-full bg-[#263D18] hover:bg-[#1D3214] disabled:opacity-60 text-[#FBF7EE] font-sans text-xs sm:text-sm font-semibold inline-flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
+                >
+                  <span>{isSubmitting ? "Please wait..." : "Verify & Create Account"}</span>
+                </button>
+              </form>
+
+              <div className="flex items-center justify-between gap-2 mt-3.5 font-sans text-xs">
+                <button
+                  type="button"
+                  onClick={() => switchMode("register")}
+                  className="font-semibold text-[#555C4A] hover:text-[#263D18] underline underline-offset-4 cursor-pointer"
+                >
+                  Change details
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting || resendSeconds > 0}
+                  onClick={() => void sendCode(otpSentTo)}
+                  className="font-semibold text-[#263D18] hover:text-[#536B35] disabled:text-[#777968] disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {resendSeconds > 0 ? `Resend in ${resendSeconds}s` : "Resend code"}
+                </button>
+              </div>
             </div>
           ) : (
             /* ================================================================ */
@@ -827,7 +953,7 @@ export function AuthPortalClient({
                   disabled={isSubmitting}
                   className="w-full py-2.5 sm:py-3 px-5 rounded-full bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] font-sans text-xs sm:text-sm font-semibold inline-flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
                 >
-                  <span>{isSubmitting ? "Creating account..." : "Register"}</span>
+                  <span>{isSubmitting ? "Sending code..." : "Send Verification Code"}</span>
                 </button>
               </form>
 

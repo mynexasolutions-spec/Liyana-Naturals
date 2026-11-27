@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { productUpdateSchema } from "@/lib/products/schema";
-import { databaseError, requireProductAdmin, validateRelations, validationMessage } from "@/lib/products/admin";
+import { databaseError, requireProductAdmin, saveVariants, validateRelations, validationMessage } from "@/lib/products/admin";
 
 export async function PATCH(
   request: Request,
@@ -30,14 +30,19 @@ export async function PATCH(
     const relationError = await validateRelations(admin.supabase, parsed.data);
     if (relationError) return relationError;
 
+    const { variants, ...product } = parsed.data;
     const { data, error } = await admin.supabase
       .from("products")
-      .update(parsed.data)
+      // A change to sizes alone still counts as an update of the product.
+      .update(Object.keys(product).length ? product : { updated_at: new Date().toISOString() })
       .eq("id", id)
       .select("*")
       .maybeSingle();
     if (error) return databaseError(error, "updated");
     if (!data) return NextResponse.json({ error: "Product not found." }, { status: 404 });
+    if (variants && !(await saveVariants(admin.supabase, id, variants))) {
+      return NextResponse.json({ error: "The product was saved, but its sizes were not. Try again." }, { status: 500 });
+    }
     return NextResponse.json({ product: data });
   } catch (error) {
     console.error("Product update failed", { error });

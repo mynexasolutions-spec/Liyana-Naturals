@@ -1,26 +1,23 @@
-import { ModuleTable } from "@/components/admin/ModuleTable";
+import { OrderManager, type AdminOrderRow } from "@/components/admin/orders/OrderManager";
+import { fetchAll, requireAdminPage } from "@/lib/admin/server";
 
-export default function OrdersPage() {
-  return <ModuleTable table="orders" title="Orders" searchKeys={["order_number", "status", "payment_status"]} columns={[
-    { key: "order_number", label: "Order" },
-    { key: "status", label: "Status", format: "status" },
-    { key: "payment_status", label: "Payment", format: "status" },
-    { key: "total", label: "Total", format: "currency" },
-  ]} emptyFields={[
-    { key: "order_number", label: "Order number", required: true },
-    { key: "status", label: "Status", type: "select", required: true, options: [
-      { label: "Pending", value: "pending" }, { label: "Confirmed", value: "confirmed" },
-      { label: "Processing", value: "processing" }, { label: "Shipped", value: "shipped" },
-      { label: "Delivered", value: "delivered" }, { label: "Cancelled", value: "cancelled" },
-      { label: "Returned", value: "returned" },
-    ] },
-    { key: "payment_status", label: "Payment status", type: "select", required: true, options: [
-      { label: "Pending", value: "pending" }, { label: "Paid", value: "paid" },
-      { label: "Failed", value: "failed" }, { label: "Refunded", value: "refunded" },
-    ] },
-    { key: "subtotal", label: "Subtotal", type: "number" },
-    { key: "discount", label: "Discount", type: "number" },
-    { key: "shipping", label: "Shipping", type: "number" },
-    { key: "total", label: "Total", type: "number" },
-  ]} />;
+const COLUMNS =
+  "id,order_number,created_at,status,payment_method,payment_status,subtotal,discount,coupon_code,shipping,total,shipping_address,shiprocket_order_id,awb_code,courier_name,shiprocket_status,attention_note,stock_released,order_items(product_name,variant_name,quantity)";
+
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const { supabase } = await requireAdminPage();
+
+  const [{ filter }, orders] = await Promise.all([
+    searchParams,
+    fetchAll<AdminOrderRow>("Orders", (from, to) =>
+      supabase
+        .from("orders")
+        .select(COLUMNS)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+  ]);
+
+  return <OrderManager orders={orders} initialFilter={filter} />;
 }

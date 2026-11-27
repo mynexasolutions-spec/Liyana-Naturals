@@ -67,28 +67,11 @@ export interface SiteConfig {
   description: string;
   url: string;
   ogImage: string;
-  announcement: {
-    enabled: boolean;
-    text: string;
-    linkText?: string;
-    href?: string;
-  };
   navigation: NavItem[];
   footerNavigation: {
     shop: NavItem[];
     about: NavItem[];
     help: NavItem[];
     legal: NavItem[];
-  };
-  contact: {
-    email: string;
-    phone: string;
-    address: string;
-  };
-  social: {
-    instagram: string;
-    facebook: string;
-    pinterest: string;
-    twitter?: string;
   };
 }

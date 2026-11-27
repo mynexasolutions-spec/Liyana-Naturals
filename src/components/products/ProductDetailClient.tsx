@@ -9,16 +9,15 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Droplet,
+  CircleHelp,
   FileText,
   FlaskConical,
   Heart,
+  ImageOff,
   Leaf,
-  Lock,
   Maximize2,
   Minus,
   Plus,
-  ShieldCheck,
   ShoppingCart,
   Sparkles,
   Star,
@@ -28,7 +27,11 @@ import {
 import { Product } from "@/types";
 import { Container } from "@/components/ui/Container";
 import { StoreProductCard } from "@/components/products/StoreProductCard";
+import { BadgeIcon } from "@/components/ui/BadgeIcon";
 import { useStore } from "@/context/StoreContext";
+import type { Badge } from "@/lib/content/badges";
+import { amountToFreeShipping, freeShippingOffer } from "@/lib/checkout/pricing";
+import { defaultVariant, findVariant, imagesFor } from "@/lib/products/variants";
 import { cn } from "@/lib/utils";
 import type { StorefrontReview } from "@/lib/supabase/storefront";
 
@@ -36,12 +39,15 @@ interface ProductDetailClientProps {
   product: Product;
   relatedProducts: Product[];
   initialReviews: StorefrontReview[];
+  /** From admin Settings, shown under the buy buttons. */
+  storeBadges: Badge[];
 }
 
 interface ProductReview {
   id: string;
   author: string;
   rating: number;
+  title: string | null;
   comment: string;
   createdAt: string;
 }
@@ -65,11 +71,12 @@ export function ProductDetailClient({
   product,
   relatedProducts,
   initialReviews,
+  storeBadges,
 }: ProductDetailClientProps) {
   const { addToCart, getCartItemQty, isInWishlist, toggleWishlist } =
     useStore();
 
-  const [quantity, setQuantity] = useState<number>(1);
+  const [wantedQuantity, setQuantity] = useState<number>(1);
   const [justAdded, setJustAdded] = useState<boolean>(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
   const [isBuyNowOpen, setIsBuyNowOpen] = useState<boolean>(false);
@@ -81,6 +88,7 @@ export function ProductDetailClient({
       id: review.id,
       author: review.author,
       rating: review.rating,
+      title: review.title,
       comment: review.body,
       createdAt: new Date(review.createdAt).toLocaleDateString("en-IN", {
         day: "numeric",
@@ -96,42 +104,51 @@ export function ProductDetailClient({
   const [reviewError, setReviewError] = useState<string>("");
   const [reviewSubmitted, setReviewSubmitted] = useState<boolean>(false);
 
-  const isWishlisted = isInWishlist(product.id);
-  const currentCartQty = getCartItemQty(product.id);
+  // The chosen size, for a product sold in sizes.
+  const [sizeId, setSizeId] = useState<string | undefined>(() => defaultVariant(product)?.id);
+  const size = findVariant(product, sizeId) ?? defaultVariant(product);
+  const price = size?.price ?? product.price;
+  const originalPrice = size ? size.originalPrice : product.originalPrice;
+  const inStock = size ? size.inStock : product.inStock;
+  // No more than the stock of the chosen size (an order allows up to 99).
+  const maxQuantity = Math.max(1, Math.min(99, size?.stock ?? product.stock ?? 0));
+  const quantity = Math.min(wantedQuantity, maxQuantity);
 
-  const discountPct = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100
-      )
+  // The pictures for that size. A new size starts again at its first picture.
+  const gallery = imagesFor(product, size);
+  const [picked, setPicked] = useState(0);
+  const image = gallery[picked] ?? gallery[0];
+  const imageSrc = image?.src;
+  const noPicture = (
+    <span className="absolute inset-0 grid place-items-center text-[#777968]">
+      <ImageOff aria-label="No picture" className="w-6 h-6" />
+    </span>
+  );
+  const selectSize = (id: string) => {
+    setSizeId(id);
+    setPicked(0);
+  };
+
+  const { shippingSettings } = useStore();
+  const shippingOffer = freeShippingOffer(shippingSettings);
+  const toFreeShipping = amountToFreeShipping(price * quantity, shippingSettings);
+  const isWishlisted = isInWishlist(product.id);
+  const currentCartQty = getCartItemQty(product.id, size?.id);
+
+  const discountPct = originalPrice
+    ? Math.round(((originalPrice - price) / originalPrice) * 100)
     : 0;
 
   const displayReviewCount = product.reviewCount;
   const displayRating = product.rating;
   const filledStars = Math.round(displayRating);
-  const isHairProduct = product.category.toLowerCase().includes("hair");
 
-  const benefitHighlights = isHairProduct
-    ? [
-        { icon: Leaf, label: "Strengthens Roots" },
-        { icon: ShieldCheck, label: "Reduces Hair Fall" },
-        { icon: Sparkles, label: "Adds Natural Shine" },
-        { icon: Droplet, label: "All Hair Types" },
-      ]
-    : [
-        { icon: Leaf, label: "Hydrates Deeply" },
-        { icon: ShieldCheck, label: "Repairs Skin Barrier" },
-        { icon: Sparkles, label: "Adds Natural Glow" },
-        { icon: Droplet, label: "All Skin Types" },
-      ];
-
-  const loveBullets =
-    product.benefits && product.benefits.length > 0
-      ? product.benefits
-      : [
-          "100% natural & botanical actives",
-          "Gentle, paraben & sulphate-free formula",
-          "Safe for everyday self-care",
-        ];
+  // Everything below comes from the admin. An empty field shows nothing.
+  const highlights = product.highlights ?? [];
+  const benefits = product.benefits ?? [];
+  const ingredients = product.ingredients ?? [];
+  const tags = product.tags ?? [];
+  const summary = product.shortDescription || product.description;
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -145,13 +162,13 @@ export function ProductDetailClient({
   }, []);
 
   const handleAddToCart = () => {
-    addToCart(product.id, quantity);
+    addToCart(product.id, quantity, { variantId: size?.id });
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 1600);
   };
 
   const handleBuyNow = () => {
-    addToCart(product.id, quantity, { openDrawer: false });
+    addToCart(product.id, quantity, { openDrawer: false, variantId: size?.id });
     setIsBuyNowOpen(true);
   };
 
@@ -276,8 +293,8 @@ export function ProductDetailClient({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-start">
             {/* LEFT COLUMN: Product Showcase + Why You'll Love It */}
             <div className="lg:col-span-5 space-y-4 sm:space-y-5">
-              {/* Main Product Image Stage (Responsive 4:3 matching 1200x900 without cropping) */}
-              <div className="relative w-full max-w-[460px] sm:max-w-[520px] lg:max-w-none mx-auto aspect-[4/3] rounded-[5px] overflow-hidden bg-white border border-[#28321F]/10 shadow-card group">
+              {/* Main Product Image Stage (square, like the pictures the admin uploads) */}
+              <div className="relative w-full max-w-[460px] sm:max-w-[520px] lg:max-w-none mx-auto aspect-square rounded-[5px] overflow-hidden bg-white border border-[#28321F]/10 shadow-card group">
                 {/* Top-Left Badge */}
                 {product.badge && (
                   <span
@@ -318,34 +335,59 @@ export function ProductDetailClient({
                   />
                 </button>
 
-                {/* Product Image (Full image visible without cropping) */}
+                {/* Product Image */}
                 <div className="relative w-full h-full bg-white">
-                  <Image
-                    src={
-                      product.images[0]?.src ||
-                      "/images/products/Fresh_Green.webp"
-                    }
-                    alt={product.images[0]?.alt || product.name}
-                    fill
-                    priority
-                    sizes="(min-width: 1024px) 40vw, (min-width: 640px) 520px, 100vw"
-                    className="object-contain object-center group-hover:scale-[1.03] transition-transform duration-500 ease-out"
-                    unoptimized
-                  />
+                  {imageSrc ? (
+                    <Image
+                      src={imageSrc}
+                      alt={image?.alt || product.name}
+                      fill
+                      priority
+                      sizes="(min-width: 1024px) 40vw, (min-width: 640px) 520px, 100vw"
+                      className="object-cover object-center group-hover:scale-[1.03] transition-transform duration-500 ease-out"
+                      unoptimized
+                    />
+                  ) : (
+                    noPicture
+                  )}
                 </div>
 
                 {/* Bottom-Right Expand / Fullscreen Zoom Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsLightboxOpen(true)}
-                  aria-label="Zoom product image"
-                  className="absolute bottom-3 right-3 z-10 w-9 h-9 rounded-[5px] bg-white/95 hover:bg-white border border-[#28321F]/10 text-[#28321F] flex items-center justify-center shadow-xs transition-all hover:scale-105 cursor-pointer"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
+                {imageSrc && (
+                  <button
+                    type="button"
+                    onClick={() => setIsLightboxOpen(true)}
+                    aria-label="Zoom product image"
+                    className="absolute bottom-3 right-3 z-10 w-9 h-9 rounded-[5px] bg-white/95 hover:bg-white border border-[#28321F]/10 text-[#28321F] flex items-center justify-center shadow-xs transition-all hover:scale-105 cursor-pointer"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
+              {/* Thumbnails, when there is more than one picture */}
+              {gallery.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Product pictures">
+                  {gallery.map((item, index) => (
+                    <button
+                      key={`${item.src}-${index}`}
+                      type="button"
+                      onClick={() => setPicked(index)}
+                      aria-label={`Show picture ${index + 1}`}
+                      aria-pressed={item === image}
+                      className={cn(
+                        "relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-[5px] overflow-hidden bg-white border cursor-pointer",
+                        item === image ? "border-[#263D18] ring-1 ring-[#263D18]" : "border-[#28321F]/12"
+                      )}
+                    >
+                      <Image src={item.src} alt="" fill sizes="80px" className="object-cover" unoptimized />
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* "Why You'll Love It?" Card */}
+              {benefits.length > 0 && (
               <div className="relative bg-gradient-to-br from-[#F4EFE0] via-[#EAF1DF] to-[#DCE8CC] border border-[#A8B88A]/45 rounded-[5px] p-4 sm:p-6 shadow-2xs overflow-hidden">
                 {/* Subtle Botanical Leaf Sprig Right Accent */}
                 <div
@@ -367,7 +409,7 @@ export function ProductDetailClient({
                   </h2>
 
                   <ul className="space-y-2">
-                    {loveBullets.map((benefit) => (
+                    {benefits.map((benefit) => (
                       <li
                         key={benefit}
                         className="flex items-start gap-2.5 text-xs sm:text-[14px] text-[#28321F] font-medium leading-snug"
@@ -381,6 +423,7 @@ export function ProductDetailClient({
                   </ul>
                 </div>
               </div>
+              )}
             </div>
 
             {/* RIGHT COLUMN: Product Purchase Info & Accordions */}
@@ -412,7 +455,7 @@ export function ProductDetailClient({
                 <span
                   className={cn(
                     "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[5px] text-xs font-semibold",
-                    product.inStock
+                    inStock
                       ? "bg-[#EAF1DF] text-[#263D18] border border-[#A8B88A]/45"
                       : "bg-[#F6EEDD] text-[#C2652B]"
                   )}
@@ -420,10 +463,10 @@ export function ProductDetailClient({
                   <span
                     className={cn(
                       "w-2 h-2 rounded-full",
-                      product.inStock ? "bg-[#3C6E26]" : "bg-[#C2652B]"
+                      inStock ? "bg-[#3C6E26]" : "bg-[#C2652B]"
                     )}
                   />
-                  <span>{product.inStock ? "In Stock" : "Out of Stock"}</span>
+                  <span>{inStock ? "In Stock" : "Out of Stock"}</span>
                 </span>
               </div>
 
@@ -439,18 +482,20 @@ export function ProductDetailClient({
               )}
 
               {/* Short Description */}
-              <p className="font-sans text-[13.5px] sm:text-[15px] md:text-[16px] text-[#555C4A] leading-relaxed mb-4 max-w-2xl">
-                {product.description}
-              </p>
+              {summary && (
+                <p className="font-sans text-[13.5px] sm:text-[15px] md:text-[16px] text-[#555C4A] leading-relaxed mb-4 max-w-2xl">
+                  {summary}
+                </p>
+              )}
 
               {/* Price + Original Price + % Off */}
               <div className="flex flex-wrap items-center gap-3 mb-5">
                 <span className="font-sans text-2xl sm:text-3xl font-bold text-[#263D18]">
-                  ₹{product.price}
+                  ₹{price}
                 </span>
-                {product.originalPrice && (
+                {originalPrice !== undefined && originalPrice > price && (
                   <span className="font-sans text-base sm:text-lg text-[#777968]/80 line-through">
-                    ₹{product.originalPrice}
+                    ₹{originalPrice}
                   </span>
                 )}
                 {discountPct > 0 && (
@@ -460,23 +505,57 @@ export function ProductDetailClient({
                 )}
               </div>
 
-              {/* 4 Benefit Highlight Tiles */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-5">
-                {benefitHighlights.map((item) => {
-                  const Icon = item.icon;
-                  return (
+              {/* Size Selector */}
+              {product.variants && product.variants.length > 0 && (
+                <div className="mb-5">
+                  <p id="size-label" className="font-sans text-sm sm:text-base font-semibold text-[#28321F] mb-2">
+                    Select Size{size ? `: ${size.name}` : ""}
+                  </p>
+                  <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-labelledby="size-label">
+                    {product.variants.map((option) => {
+                      const selected = option.id === size?.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => selectSize(option.id)}
+                          className={cn(
+                            "min-w-[96px] rounded-[5px] border px-3.5 py-2 text-center transition-colors cursor-pointer",
+                            selected
+                              ? "border-[#263D18] bg-[#263D18] text-[#FBF7EE]"
+                              : "border-[#28321F]/15 bg-white text-[#28321F] hover:border-[#536B35]",
+                            !option.inStock && !selected && "opacity-60"
+                          )}
+                        >
+                          <span className="block text-sm font-bold">{option.name}</span>
+                          <span className={cn("block text-xs", selected ? "text-[#E9DCC5]" : "text-[#536B35]")}>
+                            {option.inStock ? `₹${option.price}` : "Out of stock"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Highlight Tiles */}
+              {highlights.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-5">
+                  {highlights.map((item, index) => (
                     <div
-                      key={item.label}
+                      key={`${item.label}-${index}`}
                       className="bg-[#FFFFFF]/80 border border-[#28321F]/8 rounded-[5px] p-3 flex flex-col items-center text-center gap-1.5"
                     >
-                      <Icon className="w-5 h-5 text-[#263D18] stroke-[1.7]" />
+                      <BadgeIcon icon={item.icon} className="w-5 h-5 text-[#263D18] stroke-[1.7]" />
                       <span className="font-sans text-[11px] sm:text-xs font-semibold text-[#28321F] leading-tight">
                         {item.label}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* Quantity Selector Row */}
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-5">
@@ -486,7 +565,7 @@ export function ProductDetailClient({
                 <div className="inline-flex items-center rounded-[5px] border border-[#28321F]/15 bg-white overflow-hidden">
                   <button
                     type="button"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
                     aria-label="Decrease quantity"
                     className="w-9 h-9 flex items-center justify-center text-[#263D18] hover:bg-[#EAF1DF] disabled:opacity-40 transition-colors cursor-pointer"
@@ -498,9 +577,10 @@ export function ProductDetailClient({
                   </span>
                   <button
                     type="button"
-                    onClick={() => setQuantity((q) => Math.min(10, q + 1))}
+                    onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
+                    disabled={quantity >= maxQuantity}
                     aria-label="Increase quantity"
-                    className="w-9 h-9 flex items-center justify-center text-[#263D18] hover:bg-[#EAF1DF] transition-colors cursor-pointer"
+                    className="w-9 h-9 flex items-center justify-center text-[#263D18] hover:bg-[#EAF1DF] disabled:opacity-40 transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -518,9 +598,9 @@ export function ProductDetailClient({
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  disabled={!product.inStock}
+                  disabled={!inStock}
                   className={cn(
-                    "w-full py-3 px-6 rounded-[5px] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-xs cursor-pointer",
+                    "w-full py-3 px-6 rounded-[5px] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
                     justAdded
                       ? "bg-[#3C6E26] text-white"
                       : "bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE]"
@@ -542,51 +622,42 @@ export function ProductDetailClient({
                 <button
                   type="button"
                   onClick={handleBuyNow}
-                  disabled={!product.inStock}
-                  className="w-full py-3 px-6 rounded-[5px] border border-[#263D18] bg-white hover:bg-[#EAF1DF] text-[#263D18] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] cursor-pointer"
+                  disabled={!inStock}
+                  className="w-full py-3 px-6 rounded-[5px] border border-[#263D18] bg-white hover:bg-[#EAF1DF] text-[#263D18] text-sm font-semibold inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Zap className="w-4 h-4 text-[#536B35]" />
                   <span>Buy Now</span>
                 </button>
               </div>
 
-              {/* 3 Store Trust Icons Row (using shopicons + Lock) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 py-3.5 px-3 rounded-[5px] bg-[#F6EFE0]/60 border border-[#28321F]/8 mb-5">
-                <div className="flex items-center justify-start sm:justify-center gap-2.5">
-                  <Image
-                    src="/images/icons/shopicons/05-free-shipping-truck.svg"
-                    alt="Free Shipping Above ₹999"
-                    width={24}
-                    height={24}
-                    unoptimized
-                    className="w-6 h-6 object-contain shrink-0"
-                  />
-                  <span className="font-sans text-[12px] sm:text-[14px] font-medium text-[#28321F] leading-tight">
-                    Free Shipping Above ₹999
-                  </span>
+              {/* Free shipping (from the shipping settings) and the store's badges */}
+              {(shippingOffer || storeBadges.length > 0) && (
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-around gap-2.5 sm:gap-4 py-3.5 px-3 rounded-[5px] bg-[#F6EFE0]/60 border border-[#28321F]/8 mb-5">
+                  {shippingOffer && (
+                    <div className="flex items-center gap-2.5">
+                      <Image
+                        src="/images/icons/shopicons/05-free-shipping-truck.svg"
+                        alt=""
+                        width={24}
+                        height={24}
+                        unoptimized
+                        className="w-6 h-6 object-contain shrink-0"
+                      />
+                      <span className="font-sans text-[12px] sm:text-[14px] font-medium text-[#28321F] leading-tight">
+                        {shippingOffer}
+                      </span>
+                    </div>
+                  )}
+                  {storeBadges.map((badge, index) => (
+                    <div key={`${badge.label}-${index}`} className="flex items-center gap-2.5">
+                      <BadgeIcon icon={badge.icon} className="w-5 h-5 text-[#263D18] shrink-0 stroke-[1.7]" />
+                      <span className="font-sans text-[12px] sm:text-[14px] font-medium text-[#28321F] leading-tight">
+                        {badge.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="flex items-center justify-start sm:justify-center gap-2.5">
-                  <Image
-                    src="/images/icons/shopicons/06-easy-returns.svg"
-                    alt="Easy Returns"
-                    width={24}
-                    height={24}
-                    unoptimized
-                    className="w-6 h-6 object-contain shrink-0"
-                  />
-                  <span className="font-sans text-[12px] sm:text-[14px] font-medium text-[#28321F] leading-tight">
-                    Easy Returns
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-start sm:justify-center gap-2.5">
-                  <Lock className="w-5 h-5 text-[#263D18] shrink-0 stroke-[1.7]" />
-                  <span className="font-sans text-[12px] sm:text-[14px] font-medium text-[#28321F] leading-tight">
-                    Secure Payment
-                  </span>
-                </div>
-              </div>
+              )}
 
               {/* 4 Expandable Accordions */}
               <div className="bg-white rounded-[5px] border border-[#28321F]/12 divide-y divide-[#28321F]/10 overflow-hidden shadow-2xs">
@@ -616,23 +687,20 @@ export function ProductDetailClient({
                   </button>
                   {openAccordion === "details" && (
                     <div className="px-4 py-3.5 text-xs sm:text-sm text-[#555C4A] leading-relaxed space-y-2 bg-white">
-                      <p>{product.description}</p>
+                      <p className="whitespace-pre-line">{product.description}</p>
                       <div className="flex flex-wrap gap-2 pt-1">
-                        <span className="px-2.5 py-0.5 rounded-[5px] bg-[#FBF7EE] border border-[#28321F]/10 text-xs font-medium text-[#263D18]">
-                          Category: {product.category}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-[5px] bg-[#FBF7EE] border border-[#28321F]/10 text-xs font-medium text-[#263D18]">
-                          Paraben &amp; Sulphate Free
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-[5px] bg-[#FBF7EE] border border-[#28321F]/10 text-xs font-medium text-[#263D18]">
-                          Cruelty Free
-                        </span>
+                        {[`Category: ${product.category}`, ...tags].map((tag) => (
+                          <span key={tag} className="px-2.5 py-0.5 rounded-[5px] bg-[#FBF7EE] border border-[#28321F]/10 text-xs font-medium text-[#263D18]">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
 
                 {/* 2. Ingredients */}
+                {ingredients.length > 0 && (
                 <div>
                   <button
                     type="button"
@@ -658,28 +726,24 @@ export function ProductDetailClient({
                   </button>
                   {openAccordion === "ingredients" && (
                     <div className="px-4 py-3.5 bg-white">
-                      {product.ingredients && product.ingredients.length > 0 ? (
-                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {product.ingredients.map((ing) => (
-                            <li
-                              key={ing}
-                              className="flex items-center gap-2 text-xs sm:text-sm text-[#28321F]"
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#536B35] shrink-0" />
-                              <span>{ing}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs sm:text-sm text-[#555C4A]">
-                          Crafted with pure cold-pressed botanical extracts.
-                        </p>
-                      )}
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {ingredients.map((ing) => (
+                          <li
+                            key={ing}
+                            className="flex items-center gap-2 text-xs sm:text-sm text-[#28321F]"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#536B35] shrink-0" />
+                            <span>{ing}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* 3. How to Use */}
+                {product.howToUse && (
                 <div>
                   <button
                     type="button"
@@ -704,12 +768,52 @@ export function ProductDetailClient({
                     />
                   </button>
                   {openAccordion === "howToUse" && (
-                    <div className="px-4 py-3.5 text-xs sm:text-sm text-[#555C4A] leading-relaxed bg-white">
-                      {product.howToUse ||
-                        "Apply gently as part of your daily botanical self-care ritual."}
+                    <div className="px-4 py-3.5 text-xs sm:text-sm text-[#555C4A] leading-relaxed bg-white whitespace-pre-line">
+                      {product.howToUse}
                     </div>
                   )}
                 </div>
+                )}
+
+                {/* FAQs */}
+                {product.faqs && product.faqs.length > 0 && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => toggleAccordion("faqs")}
+                      aria-expanded={openAccordion === "faqs"}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors cursor-pointer",
+                        openAccordion === "faqs"
+                          ? "bg-[#EAF1DF]/70 text-[#263D18]"
+                          : "hover:bg-[#FAF7F0]"
+                      )}
+                    >
+                      <span className="flex items-center gap-2.5 font-sans text-sm font-bold text-[#263D18]">
+                        <CircleHelp className="w-4 h-4 text-[#536B35]" />
+                        <span>FAQs</span>
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "w-4 h-4 text-[#536B35] transition-transform duration-200",
+                          openAccordion === "faqs" && "rotate-180"
+                        )}
+                      />
+                    </button>
+                    {openAccordion === "faqs" && (
+                      <dl className="px-4 py-3.5 space-y-3 bg-white">
+                        {product.faqs.map((faq) => (
+                          <div key={faq.question}>
+                            <dt className="text-xs sm:text-sm font-semibold text-[#263D18]">{faq.question}</dt>
+                            <dd className="mt-1 text-xs sm:text-sm text-[#555C4A] leading-relaxed whitespace-pre-line">
+                              {faq.answer}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                  </div>
+                )}
 
                 {/* 4. Reviews */}
                 <div>
@@ -878,6 +982,11 @@ export function ProductDetailClient({
                                   />
                                 ))}
                               </div>
+                              {rev.title && (
+                                <p className="text-xs sm:text-sm font-semibold text-[#28321F] break-words">
+                                  {rev.title}
+                                </p>
+                              )}
                               <p className="text-xs text-[#28321F]/85 leading-relaxed">
                                 {rev.comment}
                               </p>
@@ -910,14 +1019,9 @@ export function ProductDetailClient({
         >
           <Container size="xl">
             <div className="flex items-end justify-between gap-4 mb-5 sm:mb-6">
-              <div>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#536B35] block mb-0.5">
-                  Pure Botanical Collection
-                </span>
-                <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#263D18] tracking-tight">
-                  You May Also Like
-                </h2>
-              </div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-[#263D18] tracking-tight">
+                You May Also Like
+              </h2>
 
               <Link
                 href="/shop"
@@ -942,7 +1046,7 @@ export function ProductDetailClient({
         IMAGE ZOOM LIGHTBOX MODAL
         ========================================================================
       */}
-      {isLightboxOpen && (
+      {isLightboxOpen && imageSrc && (
         <div
           className="fixed inset-0 z-50 bg-[#999999]/55 backdrop-blur-[2px] flex items-center justify-center p-4"
           role="dialog"
@@ -951,7 +1055,7 @@ export function ProductDetailClient({
           onClick={() => setIsLightboxOpen(false)}
         >
           <div
-            className="relative w-full max-w-lg sm:max-w-xl aspect-[4/3] max-h-[82vh] bg-white rounded-[5px] p-3 sm:p-5 shadow-2xl border border-[#28321F]/10"
+            className="relative w-full max-w-[min(36rem,82vh)] aspect-square bg-white rounded-[5px] p-3 sm:p-5 shadow-2xl border border-[#28321F]/10"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -964,10 +1068,8 @@ export function ProductDetailClient({
             </button>
             <div className="relative w-full h-full">
               <Image
-                src={
-                  product.images[0]?.src || "/images/products/Fresh_Green.webp"
-                }
-                alt={product.images[0]?.alt || product.name}
+                src={imageSrc}
+                alt={image?.alt || product.name}
                 fill
                 sizes="(max-width: 640px) 92vw, 576px"
                 className="object-contain"
@@ -1014,33 +1116,38 @@ export function ProductDetailClient({
 
             <div className="flex items-center gap-3.5 py-4 border-b border-[#28321F]/10">
               <div className="relative w-16 h-16 rounded-[5px] bg-[#FAF7F0] border border-[#28321F]/8 shrink-0 overflow-hidden">
-                <Image
-                  src={
-                    product.images[0]?.src ||
-                    "/images/products/Fresh_Green.webp"
-                  }
-                  alt={product.name}
-                  fill
-                  sizes="64px"
-                  className="object-contain p-1"
-                  unoptimized
-                />
+                {imageSrc ? (
+                  <Image
+                    src={imageSrc}
+                    alt={product.name}
+                    fill
+                    sizes="64px"
+                    className="object-contain p-1"
+                    unoptimized
+                  />
+                ) : (
+                  noPicture
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <h4 className="font-sans text-sm font-bold text-[#263D18] truncate">
                   {product.name}
                 </h4>
-                <p className="text-xs text-[#777968]">Quantity: {quantity}</p>
+                <p className="text-xs text-[#777968]">
+                  {size ? `Size: ${size.name} · ` : ""}Quantity: {quantity}
+                </p>
                 <p className="text-sm font-bold text-[#263D18] mt-0.5">
-                  ₹{product.price * quantity}
+                  ₹{price * quantity}
                 </p>
               </div>
             </div>
 
             <p className="text-xs text-[#555C4A] py-3 leading-relaxed">
-              {product.price * quantity >= 999
+              {toFreeShipping === 0
                 ? "Your order qualifies for FREE shipping!"
-                : `Add ₹${999 - product.price * quantity} more in your bag to unlock free shipping above ₹999.`}
+                : toFreeShipping === null
+                ? `Standard delivery charge: ₹${shippingSettings.standardFee}.`
+                : `Add ₹${toFreeShipping} more in your bag to unlock free shipping above ₹${shippingSettings.freeFrom}.`}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">

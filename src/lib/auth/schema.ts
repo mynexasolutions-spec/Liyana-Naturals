@@ -26,6 +26,10 @@ export const registerInputSchema = z.object({
   password: authPasswordSchema,
 });
 
+export const signupVerificationSchema = registerInputSchema.extend({
+  otp: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from your email."),
+});
+
 export function firstValidationMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Check the entered account details.";
 }

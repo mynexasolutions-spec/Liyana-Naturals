@@ -1,165 +1,227 @@
-import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
+import { after, NextResponse } from "next/server";
+import { calculateOrderTotals, roundMoney, toPaymentSettings, toShippingSettings } from "@/lib/checkout/pricing";
+import { orderRequestSchema } from "@/lib/checkout/schema";
+import { COUPON_NOT_VALID, findRedeemableCoupon } from "@/lib/coupons/server";
+import type { CouponRule } from "@/lib/coupons/shared";
+import { sendOrderConfirmation } from "@/lib/orders/confirmation-email";
+import { createRazorpayOrder, getRazorpayConfig } from "@/lib/razorpay/server";
+import { withinRateLimits } from "@/lib/security/rate-limit";
+import { getClientIp, jsonError, readJsonBody } from "@/lib/security/request";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type OrderBody = {
-  customer?: { fullName?: unknown; email?: unknown; phone?: unknown };
-  address?: { street?: unknown; city?: unknown; state?: unknown; pinCode?: unknown };
-  items?: { productId?: unknown; quantity?: unknown }[];
-  deliveryMethod?: unknown;
-  paymentMethod?: unknown;
-  couponCode?: unknown;
+// Unpaid online orders hold stock this long. Must exceed the checkout window.
+const RESERVE_MINUTES = 20;
+
+const PRICE_CHANGED = "Prices have changed. Refresh the page, review your total and try again.";
+
+const COUPON_ERRORS: Record<string, string> = {
+  COUPON_INVALID: "This coupon can no longer be applied. Remove it and apply it again.",
+  COUPON_USED_UP: "This coupon has been fully used.",
+  COUPON_CUSTOMER_LIMIT: "You have already used this coupon the maximum number of times.",
 };
 
-export async function POST(request: Request) {
-  let body: OrderBody;
+/** Tells checkout to remove the applied coupon. */
+function couponRejected(error: string) {
+  return NextResponse.json({ error, couponRejected: true }, { status: 409 });
+}
+
+function newOrderNumber(): string {
+  const date = new Date().toISOString().slice(2, 10).replaceAll("-", "");
+  return `LN-${date}-${randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
+async function getSignedInUserId(): Promise<string | null> {
   try {
-    body = (await request.json()) as OrderBody;
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
   } catch {
-    return NextResponse.json({ error: "Invalid order request." }, { status: 400 });
+    return null;
+  }
+}
+
+export async function POST(request: Request) {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const parsed = orderRequestSchema.safeParse(body.data);
+  if (!parsed.success) {
+    return jsonError(parsed.error.issues[0]?.message ?? "Check your order details.", 400);
+  }
+  const { customer, address, items, paymentMethod, couponCode, expectedTotal } = parsed.data;
+  const isOnline = paymentMethod === "online";
+  const razorpay = getRazorpayConfig();
+  if (isOnline && !razorpay) {
+    return jsonError("Online payment is unavailable right now. Please try again later.", 503);
   }
 
-  const customer = body.customer;
-  const address = body.address;
-  const items = Array.isArray(body.items) ? body.items : [];
-  const fullName = typeof customer?.fullName === "string" ? customer.fullName.trim() : "";
-  const email = typeof customer?.email === "string" ? customer.email.trim().toLowerCase() : "";
-  const phone = typeof customer?.phone === "string" ? customer.phone.trim() : "";
-  const street = typeof address?.street === "string" ? address.street.trim() : "";
-  const city = typeof address?.city === "string" ? address.city.trim() : "";
-  const state = typeof address?.state === "string" ? address.state.trim() : "";
-  const pinCode = typeof address?.pinCode === "string" ? address.pinCode.trim() : "";
-
-  if (
-    fullName.length < 2 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    phone.replace(/\D/g, "").length < 10 ||
-    street.length < 6 ||
-    city.length < 2 ||
-    !state ||
-    !/^\d{6}$/.test(pinCode) ||
-    items.length === 0
-  ) {
-    return NextResponse.json({ error: "Complete the customer, address, and cart details." }, { status: 400 });
-  }
-
-  const quantities = new Map<string, number>();
-  for (const item of items) {
-    if (typeof item.productId !== "string") {
-      return NextResponse.json({ error: "The cart contains an invalid product." }, { status: 400 });
-    }
-    const quantity = Number(item.quantity);
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
-      return NextResponse.json({ error: "Product quantities must be whole numbers between 1 and 99." }, { status: 400 });
-    }
-    quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + quantity);
-  }
-
-  let admin;
   try {
-    admin = createSupabaseAdminClient();
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Orders are not configured." }, { status: 500 });
-  }
+    const admin = createSupabaseAdminClient();
 
-  const productIds = [...quantities.keys()];
-  const { data: products, error: productError } = await admin
-    .from("products")
-    .select("id,name,price,stock_quantity,is_active")
-    .in("id", productIds);
-  if (productError) return NextResponse.json({ error: productError.message }, { status: 500 });
-
-  const productMap = new Map((products ?? []).map((product) => [product.id, product]));
-  if (productMap.size !== productIds.length) {
-    return NextResponse.json({ error: "One or more products are no longer available." }, { status: 409 });
-  }
-
-  for (const [productId, quantity] of quantities) {
-    const product = productMap.get(productId);
-    if (!product?.is_active || product.stock_quantity < quantity) {
-      return NextResponse.json({ error: `${product?.name ?? "A product"} is out of stock.` }, { status: 409 });
+    // Cash orders cost nothing to fake, so they get tighter limits.
+    const ip = getClientIp(request);
+    const allowed = await withinRateLimits(
+      admin,
+      isOnline
+        ? [{ scope: "order-ip", identifier: ip, limit: 10, windowSeconds: 600 }]
+        : [
+            { scope: "cod-ip", identifier: ip, limit: 5, windowSeconds: 3600 },
+            { scope: "cod-email", identifier: customer.email, limit: 3, windowSeconds: 3600 },
+          ],
+    );
+    if (!allowed) {
+      return jsonError("Too many order attempts. Please wait a while and try again.", 429);
     }
-  }
 
-  const subtotal = productIds.reduce((sum, productId) => {
-    const product = productMap.get(productId);
-    return sum + Number(product?.price ?? 0) * (quantities.get(productId) ?? 0);
-  }, 0);
-  const couponCode = typeof body.couponCode === "string" ? body.couponCode.trim().toUpperCase() : "";
-  const discount = couponCode === "LIYANA10" ? Math.round(subtotal * 0.1) : 0;
-  const shipping = body.deliveryMethod === "express" ? 100 : subtotal >= 999 ? 0 : 60;
-  const total = Math.max(0, subtotal - discount) + shipping;
+    const release = await admin.rpc("release_unpaid_orders");
+    if (release.error) console.error("[orders] Stock release failed:", release.error.message);
 
-  const { data: customerRow, error: customerError } = await admin
-    .from("customers")
-    .upsert({ full_name: fullName, email, phone }, { onConflict: "email" })
-    .select("id")
-    .single();
-  if (customerError || !customerRow) {
-    return NextResponse.json({ error: customerError?.message ?? "Customer could not be saved." }, { status: 500 });
-  }
+    const wanted = new Map<string, { productId: string; variantId: string | null; quantity: number }>();
+    for (const item of items) {
+      const key = `${item.productId}:${item.variantId ?? ""}`;
+      const line = wanted.get(key) ?? { productId: item.productId, variantId: item.variantId ?? null, quantity: 0 };
+      line.quantity += item.quantity;
+      wanted.set(key, line);
+    }
 
-  const orderNumber = `LN-${Date.now().toString().slice(-8)}`;
-  const { data: order, error: orderError } = await admin
-    .from("orders")
-    .insert({
-      order_number: orderNumber,
-      customer_id: customerRow.id,
-      subtotal,
-      discount,
-      shipping,
-      total,
-      shipping_address: { street, city, state, pinCode, phone, deliveryMethod: body.deliveryMethod },
-      payment_status: "pending",
-      status: "pending",
-    })
-    .select("id,order_number")
-    .single();
-  if (orderError || !order) {
-    return NextResponse.json({ error: orderError?.message ?? "Order could not be created." }, { status: 500 });
-  }
-
-  const { error: itemError } = await admin.from("order_items").insert(
-    productIds.map((productId) => {
-      const product = productMap.get(productId)!;
-      const quantity = quantities.get(productId)!;
-      return {
-        order_id: order.id,
-        product_id: product.id,
-        product_name: product.name,
-        quantity,
-        unit_price: product.price,
-        total: Number(product.price) * quantity,
-      };
-    }),
-  );
-  if (itemError) {
-    await admin.from("orders").delete().eq("id", order.id);
-    return NextResponse.json({ error: itemError.message }, { status: 500 });
-  }
-
-  const decremented: { id: string; stock: number }[] = [];
-  for (const [productId, quantity] of quantities) {
-    const product = productMap.get(productId)!;
-    const { data: updatedProduct, error: stockError } = await admin
+    const { data: products, error: productError } = await admin
       .from("products")
-      .update({ stock_quantity: product.stock_quantity - quantity })
-      .eq("id", productId)
-      .eq("stock_quantity", product.stock_quantity)
-      .select("id")
-      .maybeSingle();
+      .select("id,name,price,stock_quantity,is_active,product_variants(id,name,price,stock_quantity)")
+      .in("id", [...new Set(items.map((item) => item.productId))]);
+    if (productError) throw new Error(productError.message);
 
-    if (stockError || !updatedProduct) {
-      for (const restored of decremented) {
-        await admin
-          .from("products")
-          .update({ stock_quantity: restored.stock })
-          .eq("id", restored.id);
+    const productMap = new Map((products ?? []).map((product) => [product.id as string, product]));
+    const lines: { product_id: string; variant_id: string | null; quantity: number; unit_price: number }[] = [];
+    for (const { productId, variantId, quantity } of wanted.values()) {
+      const product = productMap.get(productId);
+      if (!product?.is_active) {
+        return jsonError("One or more products are no longer available.", 409);
       }
-      await admin.from("orders").delete().eq("id", order.id);
-      return NextResponse.json({ error: "Stock changed while placing the order. Please try again." }, { status: 409 });
+      // The price and stock always come from the database, never from the cart.
+      const sizes = product.product_variants ?? [];
+      const size = variantId ? sizes.find((item) => item.id === variantId) : undefined;
+      if (sizes.length > 0 ? !size : variantId) {
+        return jsonError(`${product.name}: refresh the page and choose the size again.`, 409);
+      }
+      const sold = size ?? product;
+      if (sold.stock_quantity < quantity) {
+        const label = size ? `${product.name} (${size.name})` : product.name;
+        return jsonError(`${label} does not have enough stock.`, 409);
+      }
+      lines.push({ product_id: productId, variant_id: variantId, quantity, unit_price: Number(sold.price) });
     }
-    decremented.push({ id: productId, stock: product.stock_quantity });
-  }
 
-  return NextResponse.json({ orderNumber: order.order_number }, { status: 201 });
+    const subtotal = roundMoney(lines.reduce((sum, line) => sum + line.unit_price * line.quantity, 0));
+    let coupon: CouponRule | null = null;
+    if (couponCode) {
+      if (!/^[A-Z0-9_-]{3,30}$/.test(couponCode)) return couponRejected(COUPON_NOT_VALID);
+      const found = await findRedeemableCoupon(admin, couponCode, subtotal);
+      if (!found.ok) return couponRejected(found.error);
+      coupon = found.coupon;
+    }
+
+    // Read fresh for every order. If it cannot be read, no order is better than a wrong charge.
+    const settings = await admin.from("store_settings").select("*").eq("id", true).maybeSingle();
+    if (settings.error) throw new Error(settings.error.message);
+    const payment = toPaymentSettings(settings.data);
+
+    // The checkout page hides what is switched off, but only this check counts.
+    if (isOnline ? !payment.onlineEnabled : !payment.codEnabled) {
+      return jsonError(
+        `${isOnline ? "Online payment" : "Cash on Delivery"} is not available right now. Choose another way to pay.`,
+        409,
+      );
+    }
+
+    const totals = calculateOrderTotals({
+      subtotal,
+      coupon,
+      shipping: toShippingSettings(settings.data),
+      codFee: isOnline ? 0 : payment.codFee,
+    });
+    if (roundMoney(expectedTotal) !== totals.total) return jsonError(PRICE_CHANGED, 409);
+    const amountPaise = Math.round(totals.total * 100);
+    if (isOnline && amountPaise < 100) {
+      return jsonError("The order total is too low for online payment.", 400);
+    }
+
+    const { data: order, error: orderError } = await admin.rpc("place_order", {
+      p_order: {
+        order_number: newOrderNumber(),
+        auth_user_id: await getSignedInUserId(),
+        coupon_code: coupon?.code ?? "",
+        full_name: customer.fullName,
+        email: customer.email,
+        phone: customer.phone,
+        payment_method: isOnline ? "razorpay" : "cod",
+        reserve_minutes: RESERVE_MINUTES,
+        ...totals,
+        cod_fee: totals.codFee,
+        shipping_address: {
+          fullName: customer.fullName,
+          email: customer.email,
+          phone: customer.phone,
+          ...address,
+        },
+      },
+      p_items: lines,
+    });
+    if (orderError) {
+      if (orderError.message.startsWith("OUT_OF_STOCK:")) {
+        return jsonError(
+          `${orderError.message.slice("OUT_OF_STOCK:".length)} does not have enough stock.`,
+          409,
+        );
+      }
+      if (orderError.message === "PRICE_CHANGED") return jsonError(PRICE_CHANGED, 409);
+      if (Object.hasOwn(COUPON_ERRORS, orderError.message)) {
+        return couponRejected(COUPON_ERRORS[orderError.message]);
+      }
+      if (orderError.message === "VARIANT_REQUIRED") {
+        return jsonError("Refresh the page and choose the size again.", 409);
+      }
+      if (orderError.message === "PRODUCT_UNAVAILABLE") {
+        return jsonError("One or more products are no longer available.", 409);
+      }
+      throw new Error(orderError.message);
+    }
+    const { id: orderId, order_number: orderNumber } = order as { id: string; order_number: string };
+
+    if (!isOnline) {
+      after(() => sendOrderConfirmation(orderId));
+      return NextResponse.json({ orderNumber, ...totals }, { status: 201 });
+    }
+
+    try {
+      const razorpayOrder = await createRazorpayOrder({ amountPaise, receipt: orderNumber, orderId });
+      const { error: linkError } = await admin
+        .from("orders")
+        .update({ razorpay_order_id: razorpayOrder.id })
+        .eq("id", orderId);
+      if (linkError) throw new Error(linkError.message);
+
+      return NextResponse.json(
+        {
+          orderNumber,
+          ...totals,
+          razorpay: {
+            keyId: razorpay!.keyId,
+            orderId: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+          },
+        },
+        { status: 201 },
+      );
+    } catch (error) {
+      await admin.rpc("release_unpaid_orders", { p_order_id: orderId });
+      console.error("[orders] Online payment setup failed:", error instanceof Error ? error.message : error);
+      return jsonError("Online payment could not be started. Please try again.", 502);
+    }
+  } catch (error) {
+    console.error("[orders] Order failed:", error instanceof Error ? error.message : error);
+    return jsonError("We could not place your order. Please try again shortly.", 500);
+  }
 }

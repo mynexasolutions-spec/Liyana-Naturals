@@ -6,8 +6,15 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { PageTransitionShell } from "@/components/layout/PageTransitionShell";
 import { StoreProvider } from "@/context/StoreContext";
+import { toShippingSettings } from "@/lib/checkout/pricing";
+import { toStoreContact } from "@/lib/settings/contact";
 import { StorefrontRealtimeSync } from "@/components/layout/StorefrontRealtimeSync";
-import { getStorefrontCategories, getStorefrontProducts, getStorefrontSettings } from "@/lib/supabase/storefront";
+import {
+  getPublishedPages,
+  getStorefrontCategories,
+  getStorefrontProducts,
+  getStorefrontSettings,
+} from "@/lib/supabase/storefront";
 
 export const metadata: Metadata = {
   title: {
@@ -67,21 +74,26 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [storefrontProducts, storefrontSettings, storefrontCategories] = await Promise.all([
+  const [storefrontProducts, storefrontSettings, storefrontCategories, publishedPages] = await Promise.all([
     getStorefrontProducts(),
     getStorefrontSettings(),
     getStorefrontCategories(),
+    getPublishedPages(),
   ]);
 
   return (
-    <StoreProvider products={storefrontProducts}>
+    <StoreProvider
+      products={storefrontProducts}
+      shipping={toShippingSettings(storefrontSettings)}
+      contact={toStoreContact(storefrontSettings, storefrontSettings?.global)}
+    >
       <div className="min-h-screen bg-[#FBF7EE] flex flex-col justify-between">
         <div className="flex flex-col flex-1">
           <AnnouncementBar settings={storefrontSettings} />
           <Header settings={storefrontSettings} categories={storefrontCategories} />
           <PageTransitionShell>{children}</PageTransitionShell>
         </div>
-        <Footer settings={storefrontSettings} />
+        <Footer settings={storefrontSettings} pages={publishedPages} />
       </div>
       <StorefrontRealtimeSync />
     </StoreProvider>

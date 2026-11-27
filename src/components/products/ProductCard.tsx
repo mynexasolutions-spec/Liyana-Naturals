@@ -26,7 +26,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </span>
           <span className="text-xs text-[#777968]">
-            {product.volume || "Natural Botanical"}
+            Natural Botanical
           </span>
         </div>
 

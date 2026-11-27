@@ -39,13 +39,10 @@ function applyHomepageConfiguration(
   configuration: Record<string, unknown>,
 ) {
   const bestSellerSlugs = stringList(configuration.bestSellerProductSlugs);
-  const featuredCategorySlugs = stringList(configuration.featuredCategorySlugs);
   return {
     products: orderBySlugs(products, bestSellerSlugs),
-    categories: orderBySlugs(
-      categories.filter((category) => category.isFeatured !== false),
-      featuredCategorySlugs,
-    ),
+    // Already in the order the admin set on the Categories page.
+    categories: categories.filter((category) => category.isFeatured !== false),
     blogs: blogs.filter((blog) => blog.featured === true),
   };
 }
@@ -72,7 +69,7 @@ export default async function HomePage() {
       <CategorySection categories={homepage.categories} />
       <BestSellers products={homepage.products} />
       <AboutSection />
-      <Testimonials reviews={storefrontReviews} />
+      <Testimonials reviews={storefrontReviews.filter((review) => review.showOnHome)} />
       <BlogSection posts={homepage.blogs} />
       <Newsletter />
     </main>

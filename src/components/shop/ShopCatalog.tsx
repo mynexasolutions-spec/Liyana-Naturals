@@ -1,23 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Heart,
   LayoutGrid,
   List,
-  Minus,
-  Plus,
   RotateCcw,
   Search,
-  ShoppingCart,
   SlidersHorizontal,
-  Sparkles,
   X,
 } from "lucide-react";
 import { Product } from "@/types";
@@ -78,30 +72,6 @@ const CONCERN_FILTERS = [
   "Gentle Cleansing",
 ];
 
-const COMBO_TIERS = [
-  {
-    icon: "/images/icons/shopicons/07-buy-2-get-10-off-leaf.svg",
-    title: "Buy 2",
-    subtitle: "Get 10% Off",
-    minQty: 2,
-    discount: 10,
-  },
-  {
-    icon: "/images/icons/shopicons/08-buy-3-get-15-off-leaf.svg",
-    title: "Buy 3",
-    subtitle: "Get 15% Off",
-    minQty: 3,
-    discount: 15,
-  },
-  {
-    icon: "/images/icons/shopicons/09-buy-4-get-20-off-leaf.svg",
-    title: "Buy 4+",
-    subtitle: "Get 20% Off",
-    minQty: 4,
-    discount: 20,
-  },
-];
-
 type SortOption =
   | "bestselling"
   | "featured"
@@ -129,7 +99,7 @@ export function ShopCatalog({
   initialSearch,
   products = [],
 }: ShopCatalogProps) {
-  const { addToCart, wishlistIds, totalWishlistCount, isHydrated } = useStore();
+  const { wishlistIds, totalWishlistCount, isHydrated } = useStore();
 
   // Modern Responsive Wishlist-Only Toast State
   const prevWishlistRef = useRef<string[] | null>(null);
@@ -213,14 +183,6 @@ export function ShopCatalog({
     skinType: true,
     concerns: true,
   });
-
-  // Build Your Own Combo Interactive State
-  const [isComboBuilderOpen, setIsComboBuilderOpen] = useState<boolean>(false);
-  const [comboSelection, setComboSelection] = useState<Record<string, number>>({
-    "prod-3": 1,
-    "prod-4": 1,
-  });
-  const [comboAdded, setComboAdded] = useState<boolean>(false);
 
   // Category Options with Dynamic Counts from Available Products
   const categoryCounts = useMemo(() => {
@@ -381,49 +343,6 @@ export function ShopCatalog({
     (maxPrice < maxProductPrice ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0) +
     (tagFilter ? 1 : 0);
-
-  // Combo Calculations
-  const comboStats = useMemo(() => {
-    let totalQty = 0;
-    let subtotal = 0;
-    for (const [id, qty] of Object.entries(comboSelection)) {
-      if (qty <= 0) continue;
-      const item = products.find((p) => p.id === id);
-      if (item) {
-        totalQty += qty;
-        subtotal += item.price * qty;
-      }
-    }
-    const discountPercent =
-      totalQty >= 4 ? 20 : totalQty === 3 ? 15 : totalQty === 2 ? 10 : 0;
-    const savings = Math.round((subtotal * discountPercent) / 100);
-    const finalTotal = subtotal - savings;
-    return { totalQty, subtotal, discountPercent, savings, finalTotal };
-  }, [comboSelection]);
-
-  const updateComboQty = (id: string, delta: number) => {
-    setComboAdded(false);
-    setComboSelection((prev) => {
-      const nextQty = Math.max(0, (prev[id] ?? 0) + delta);
-      if (nextQty === 0) {
-        const copy = { ...prev };
-        delete copy[id];
-        return copy;
-      }
-      return { ...prev, [id]: nextQty };
-    });
-  };
-
-  const handleAddComboToCart = () => {
-    if (comboStats.totalQty < 2) return;
-    for (const [id, qty] of Object.entries(comboSelection)) {
-      if (qty > 0) {
-        addToCart(id, qty);
-      }
-    }
-    setComboAdded(true);
-    setTimeout(() => setComboAdded(false), 2000);
-  };
 
   /* --------------------------- Filter Sidebar UI -------------------------- */
   const renderFilterSidebarContent = (isDrawer = false) => (
@@ -944,233 +863,6 @@ export function ShopCatalog({
           </div>
         </div>
       )}
-
-      {/* 
-        ========================================================================
-        BUILD YOUR OWN COMBO SECTION (Using shopicons 07, 08, 09)
-        ========================================================================
-      */}
-      <section
-        className="w-full bg-[#FBF7EE] pb-8 sm:pb-10"
-        aria-label="Build Your Own Combo"
-      >
-        <Container size="xl">
-          <div className="bg-[#F6EEDD] border border-[#E9DCC5] rounded-[5px] p-5 sm:p-7 lg:p-8 shadow-xs overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-              {/* Left: Curated Trio Product Visual (object-contain so full images show) */}
-              <div className="lg:col-span-3 flex items-center justify-center">
-                <div className="relative w-full max-w-[270px] aspect-[4/3] rounded-[5px] bg-white border border-[#28321F]/10 p-3 shadow-2xs flex items-center justify-center overflow-hidden">
-                  <div className="grid grid-cols-3 gap-2 w-full h-full items-center">
-                    {products.slice(0, 3).map((item) => (
-                      <div
-                        key={item.id}
-                        className="relative w-full h-full rounded-[5px] overflow-hidden bg-[#FAF7F0]"
-                      >
-                        <Image
-                          src={
-                            item.images[0]?.src ||
-                            "/images/products/Fresh_Green.webp"
-                          }
-                          alt={item.name}
-                          fill
-                          sizes="90px"
-                          className="object-contain p-1"
-                          unoptimized
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <span className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-[5px] bg-[#263D18] text-[#FBF7EE] text-[10px] font-semibold whitespace-nowrap shadow-xs">
-                    Save Up to 20%
-                  </span>
-                </div>
-              </div>
-
-              {/* Center: Heading, Copy & Create Your Combo Button */}
-              <div className="lg:col-span-5 text-center lg:text-left">
-                <h2 className="font-heading text-2xl sm:text-3xl lg:text-[34px] font-bold text-[#263D18] tracking-tight leading-tight mb-2">
-                  Build Your Own Combo
-                </h2>
-                <p className="font-sans text-[13px] sm:text-[14.5px] text-[#555C4A] leading-relaxed mb-4 max-w-md mx-auto lg:mx-0">
-                  Choose your favorite products and create a personalized
-                  skincare or haircare combo at a special price.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => setIsComboBuilderOpen((prev) => !prev)}
-                  className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold shadow-2xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <span>
-                    {isComboBuilderOpen
-                      ? "Hide Combo Builder"
-                      : "Create Your Combo"}
-                  </span>
-                </button>
-              </div>
-
-              {/* Right: 3 Combo Tier Perks with shopicons */}
-              <div className="lg:col-span-4 grid grid-cols-3 gap-2.5 sm:gap-4 border-t lg:border-t-0 lg:border-l border-[#28321F]/12 pt-4 lg:pt-0 lg:pl-6">
-                {COMBO_TIERS.map((tier) => {
-                  const activeTier =
-                    comboStats.discountPercent === tier.discount;
-                  return (
-                    <div
-                      key={tier.title}
-                      className={cn(
-                        "flex flex-col items-center text-center p-2.5 rounded-[5px] transition-colors",
-                        activeTier
-                          ? "bg-[#EAF1DF] border border-[#536B35]/35"
-                          : "bg-white/60 border border-transparent"
-                      )}
-                    >
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 mb-1.5 flex items-center justify-center">
-                        <Image
-                          src={tier.icon}
-                          alt={`${tier.title} ${tier.subtitle}`}
-                          width={34}
-                          height={34}
-                          unoptimized
-                          className="w-8 h-8 object-contain"
-                        />
-                      </div>
-                      <span className="font-sans text-xs sm:text-sm font-bold text-[#263D18] leading-tight">
-                        {tier.title}
-                      </span>
-                      <span className="font-sans text-[11px] sm:text-xs font-medium text-[#536B35] mt-0.5">
-                        {tier.subtitle}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Interactive Expandable Combo Builder */}
-            {isComboBuilderOpen && (
-              <div className="mt-6 pt-6 border-t border-[#28321F]/12">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#536B35]" />
-                    <h3 className="font-heading text-xl font-bold text-[#263D18]">
-                      Select 2 or More Botanical Products
-                    </h3>
-                  </div>
-                  <span className="text-xs font-medium text-[#555C4A]">
-                    Selected: <strong>{comboStats.totalQty}</strong>{" "}
-                    {comboStats.totalQty === 1 ? "item" : "items"} •{" "}
-                    {comboStats.discountPercent > 0
-                      ? `${comboStats.discountPercent}% Combo Discount Applied`
-                      : "Add at least 2 items to unlock 10% off"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {products.map((item) => {
-                    const qty = comboSelection[item.id] ?? 0;
-                    return (
-                      <div
-                        key={item.id}
-                        className={cn(
-                          "flex items-center gap-3 p-3 rounded-[5px] bg-white border transition-all",
-                          qty > 0
-                            ? "border-[#536B35] shadow-2xs"
-                            : "border-[#28321F]/10"
-                        )}
-                      >
-                        <div className="relative w-14 h-14 rounded-[5px] overflow-hidden bg-[#FAF7F0] shrink-0">
-                          <Image
-                            src={
-                              item.images[0]?.src ||
-                              "/images/products/Fresh_Green.webp"
-                            }
-                            alt={item.name}
-                            fill
-                            sizes="56px"
-                            className="object-contain p-1"
-                            unoptimized
-                          />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-sans text-xs sm:text-sm font-bold text-[#263D18] truncate">
-                            {item.name}
-                          </h4>
-                          <span className="text-xs font-semibold text-[#536B35]">
-                            ₹{item.price}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => updateComboQty(item.id, -1)}
-                            aria-label={`Decrease ${item.name} quantity`}
-                            className="w-7 h-7 rounded-[5px] border border-[#28321F]/15 bg-[#FBF7EE] hover:bg-[#EAF1DF] flex items-center justify-center text-[#263D18] cursor-pointer"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-5 text-center text-xs font-bold text-[#263D18]">
-                            {qty}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateComboQty(item.id, 1)}
-                            aria-label={`Increase ${item.name} quantity`}
-                            className="w-7 h-7 rounded-[5px] border border-[#28321F]/15 bg-[#FBF7EE] hover:bg-[#EAF1DF] flex items-center justify-center text-[#263D18] cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Combo Summary Footer */}
-                <div className="mt-4 p-4 rounded-[5px] bg-white border border-[#28321F]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm">
-                    <span className="text-[#555C4A]">
-                      Subtotal:{" "}
-                      <strong className="text-[#28321F]">
-                        ₹{comboStats.subtotal}
-                      </strong>
-                    </span>
-                    {comboStats.savings > 0 && (
-                      <span className="px-2 py-0.5 rounded-[5px] bg-[#EAF1DF] text-[#263D18] font-semibold text-xs">
-                        You Save ₹{comboStats.savings} (
-                        {comboStats.discountPercent}% Off)
-                      </span>
-                    )}
-                    <span className="text-[#263D18] font-bold text-base">
-                      Combo Total: ₹{comboStats.finalTotal}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={comboStats.totalQty < 2}
-                    onClick={handleAddComboToCart}
-                    className="px-5 py-2.5 rounded-[5px] bg-[#263D18] hover:bg-[#1D3214] disabled:opacity-45 text-[#FBF7EE] text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  >
-                    {comboAdded ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Combo Added to Cart</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCart className="w-4 h-4" />
-                        <span>Add Combo to Cart</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </Container>
-      </section>
 
       {/* Modern Responsive Wishlist-Only Toast Notification */}
       {wishlistToast.visible && (
