@@ -326,3 +326,33 @@ video {
     transform: scaleX(1);
   }
 }
+
+/*
+ * Printing a page that has a receipt prints the receipt alone: no header, menus
+ * or buttons. Other pages print as usual.
+ */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  /* Hide everything that is not the receipt, inside it, or around it. */
+  body:has(.print-receipt) *:not(:has(.print-receipt)):not(.print-receipt):not(.print-receipt *) {
+    display: none !important;
+  }
+
+  /* The boxes around the receipt must not add space, colour or movement. */
+  body:has(.print-receipt),
+  body:has(.print-receipt) *:has(.print-receipt) {
+    display: block !important;
+    position: static !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}

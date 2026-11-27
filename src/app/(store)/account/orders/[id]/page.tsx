@@ -155,6 +155,20 @@ export default async function CustomerOrderPage({ params }: { params: Promise<{ 
             <p className="mt-1 text-sm text-[#555C4A]">
               Status: <strong className="capitalize text-[#263D18]">{order.payment_status}</strong>
             </p>
+            {order.razorpay_payment_id && (
+              <>
+                <p className="mt-1 text-sm text-[#555C4A]">
+                  Payment ID:{" "}
+                  <strong className="select-all break-all font-mono text-xs text-[#263D18]">{order.razorpay_payment_id}</strong>
+                </p>
+                {order.razorpay_order_id && (
+                  <p className="mt-1 text-sm text-[#555C4A]">
+                    Razorpay Order ID:{" "}
+                    <strong className="select-all break-all font-mono text-xs text-[#263D18]">{order.razorpay_order_id}</strong>
+                  </p>
+                )}
+              </>
+            )}
           </section>
         </div>
       </div>

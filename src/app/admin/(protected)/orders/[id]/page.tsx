@@ -22,6 +22,7 @@ type AdminOrder = {
   payment_method: string | null;
   payment_status: string;
   razorpay_payment_id: string | null;
+  razorpay_order_id: string | null;
   attention_note: string | null;
   stock_released: boolean;
   subtotal: number | string;
@@ -72,7 +73,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   const { data, error } = await createSupabaseAdminClient()
     .from("orders")
     .select(
-      "id,order_number,created_at,status,payment_method,payment_status,razorpay_payment_id,attention_note,stock_released,subtotal,discount,coupon_code,shipping,total,shipping_address,shiprocket_order_id,awb_code,courier_name,shiprocket_status,tracking_scans,processing_at,shipped_at,delivered_at,order_items(id,product_name,variant_name,quantity,unit_price,total,products(images))",
+      "id,order_number,created_at,status,payment_method,payment_status,razorpay_payment_id,razorpay_order_id,attention_note,stock_released,subtotal,discount,coupon_code,shipping,total,shipping_address,shiprocket_order_id,awb_code,courier_name,shiprocket_status,tracking_scans,processing_at,shipped_at,delivered_at,order_items(id,product_name,variant_name,quantity,unit_price,total,products(images))",
     )
     .eq("id", id.data)
     .maybeSingle();
@@ -138,7 +139,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             <dl className="mt-3 space-y-1.5 border-t border-[#28321F]/8 pt-3 text-sm">
               {[
                 ["Subtotal", money(order.subtotal)],
-                [order.coupon_code ? `Discount (${order.coupon_code})` : "Discount", `-${money(order.discount)}`],
+                ...(Number(order.discount) > 0
+                  ? [[order.coupon_code ? `Discount (${order.coupon_code})` : "Discount", `-${money(order.discount)}`]]
+                  : []),
                 ["Shipping", money(order.shipping)],
                 ...(codFeeOf(order) > 0 ? [["Cash on Delivery fee", money(codFeeOf(order))]] : []),
                 ["Total", money(order.total)],
@@ -169,7 +172,16 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             </div>
             <div className="sm:col-span-2 border-t border-[#28321F]/8 pt-3 text-[#555C4A]">
               Payment: <strong>{order.payment_method === "cod" ? "Cash on Delivery" : order.payment_method === "razorpay" ? "Online (Razorpay)" : "Not recorded"}</strong>
-              {order.razorpay_payment_id && <span className="block select-all font-mono text-xs">{order.razorpay_payment_id}</span>}
+              {order.razorpay_payment_id && (
+                <span className="mt-1 block text-xs">
+                  Payment ID: <span className="select-all break-all font-mono">{order.razorpay_payment_id}</span>
+                </span>
+              )}
+              {order.razorpay_order_id && (
+                <span className="block text-xs">
+                  Razorpay Order ID: <span className="select-all break-all font-mono">{order.razorpay_order_id}</span>
+                </span>
+              )}
             </div>
           </section>
         </div>

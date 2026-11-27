@@ -19,7 +19,7 @@ export async function sendOrderConfirmation(orderId: string): Promise<void> {
       .eq("id", orderId)
       .is("confirmation_email_sent_at", null)
       .select(
-        "order_number,payment_method,attention_note,subtotal,discount,shipping,total,shipping_address,order_items(product_name,variant_name,quantity,total)",
+        "order_number,payment_method,razorpay_order_id,razorpay_payment_id,attention_note,subtotal,discount,shipping,total,shipping_address,order_items(product_name,variant_name,quantity,total)",
       )
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -35,6 +35,9 @@ export async function sendOrderConfirmation(orderId: string): Promise<void> {
             orderNumber: order.order_number,
             customerName: address.fullName ?? "there",
             paymentMethod: order.payment_method === "cod" ? "cod" : "razorpay",
+            razorpayPaymentId: order.razorpay_payment_id ?? undefined,
+            // The order id alone is not proof of payment, so it goes with the payment id.
+            razorpayOrderId: order.razorpay_payment_id ? (order.razorpay_order_id ?? undefined) : undefined,
             needsAttention: Boolean(order.attention_note),
             items: order.order_items.map((item) => ({
               name: itemLabel(item.product_name, item.variant_name),

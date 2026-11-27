@@ -10,7 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // they read them, and every query is limited to the signed-in customer.
 
 const COLUMNS =
-  "id,order_number,created_at,status,payment_method,payment_status,subtotal,discount,coupon_code,shipping,total,shipping_address,auth_user_id,shiprocket_order_id,awb_code,courier_name,shiprocket_status,attention_note,tracking_scans,shiprocket_synced_at,processing_at,shipped_at,delivered_at,order_items(id,product_name,variant_name,quantity,total,products(images))";
+  "id,order_number,created_at,status,payment_method,payment_status,razorpay_order_id,razorpay_payment_id,subtotal,discount,coupon_code,shipping,total,shipping_address,auth_user_id,shiprocket_order_id,awb_code,courier_name,shiprocket_status,attention_note,tracking_scans,shiprocket_synced_at,processing_at,shipped_at,delivered_at,order_items(id,product_name,variant_name,quantity,total,products(images))";
 
 // Opening an order page refreshes courier data at most this often.
 const SYNC_AFTER_MS = 5 * 60 * 1000;
@@ -22,6 +22,8 @@ export type CustomerOrder = {
   status: OrderStatus;
   payment_method: string | null;
   payment_status: string;
+  razorpay_order_id: string | null;
+  razorpay_payment_id: string | null;
   subtotal: number | string;
   discount: number | string;
   coupon_code: string | null;

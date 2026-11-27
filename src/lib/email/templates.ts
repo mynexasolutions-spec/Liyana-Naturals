@@ -86,6 +86,9 @@ export type OrderEmailData = {
   orderNumber: string;
   customerName: string;
   paymentMethod: "razorpay" | "cod";
+  /** Razorpay's references, for online payments only. */
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
   needsAttention: boolean;
   items: { name: string; quantity: number; total: number }[];
   subtotal: number;
@@ -101,6 +104,10 @@ export function orderConfirmationEmail(order: OrderEmailData) {
     order.paymentMethod === "cod"
       ? `Cash on Delivery. Please keep ${money(order.total)} ready.`
       : "Paid online.";
+  const references = [
+    order.razorpayPaymentId ? `Payment ID: ${order.razorpayPaymentId}` : "",
+    order.razorpayOrderId ? `Razorpay Order ID: ${order.razorpayOrderId}` : "",
+  ].filter(Boolean);
   const intro = order.needsAttention
     ? "We received your payment. Our team needs to check your order and will contact you shortly."
     : "Thank you for your order. We have received it and will update you as it moves.";
@@ -130,7 +137,7 @@ export function orderConfirmationEmail(order: OrderEmailData) {
       ${paragraph(intro)}
       ${table(items)}
       ${table(totals)}
-      ${paragraph(`<strong>Payment:</strong> ${paymentLine}`)}
+      ${paragraph([`<strong>Payment:</strong> ${paymentLine}`, ...references.map(escapeHtml)].join("<br />"))}
       ${paragraph(`<strong>Delivery address</strong><br />${order.addressLines.map(escapeHtml).join("<br />")}`)}`,
       order.support,
     ),
@@ -141,6 +148,7 @@ export function orderConfirmationEmail(order: OrderEmailData) {
       ...order.items.map((item) => `${item.name} x ${item.quantity}: ${money(item.total)}`),
       `Total: ${money(order.total)}`,
       `Payment: ${paymentLine}`,
+      ...references,
       `Delivery address: ${order.addressLines.join(", ")}`,
     ].join("\n"),
   };

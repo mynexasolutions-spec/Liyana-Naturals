@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { useStore } from "@/context/StoreContext";
+import { OrderReceipt } from "@/components/checkout/OrderReceipt";
 import {
   calculateOrderTotals,
   codFeeOf,
@@ -87,6 +88,9 @@ interface PlacedOrder {
 
 interface CompletedOrderSnapshot {
   orderId: string;
+  /** Razorpay's references, for online payments only. */
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   placedAt: string;
   customerName: string;
   phone: string;
@@ -110,6 +114,10 @@ interface CompletedOrderSnapshot {
   shippingFee: number;
   total: number;
 }
+
+/** How the order on the success page and its receipt was paid. */
+const paymentText = (state: PaymentState) =>
+  state === "cod" ? "Cash on Delivery (COD)" : state === "processing" ? "Online (confirmation pending)" : "Paid online";
 
 export function CheckoutClient({ payment }: { payment: PaymentSettings }) {
   const {
@@ -323,11 +331,13 @@ export function CheckoutClient({ payment }: { payment: PaymentSettings }) {
       })),
     };
 
-    const finishOrder = (order: PlacedOrder, paymentState: PaymentState) => {
+    const finishOrder = (order: PlacedOrder, paymentState: PaymentState, payment?: RazorpaySuccess) => {
       pendingPayment.current = null;
       setCompletedOrder({
         ...details,
         orderId: order.orderNumber,
+        razorpayOrderId: payment?.razorpay_order_id,
+        razorpayPaymentId: payment?.razorpay_payment_id,
         paymentState,
         subtotal: order.subtotal,
         discount: order.discount,
@@ -366,11 +376,12 @@ export function CheckoutClient({ payment }: { payment: PaymentSettings }) {
           order,
           result.status === "paid" || result.status === "needs_attention"
             ? result.status
-            : "processing"
+            : "processing",
+          payment
         );
       } catch {
         // Money may already have moved; the webhook confirms it. Do not ask to pay again.
-        finishOrder(order, "processing");
+        finishOrder(order, "processing", payment);
       }
     };
 
@@ -547,6 +558,7 @@ export function CheckoutClient({ payment }: { payment: PaymentSettings }) {
         {/* ORDER COMPLETE VIEW                                                */}
         {/* ================================================================== */}
         {completedOrder ? (
+          <>
           <section
             aria-label="Order Confirmation"
             className="max-w-3xl mx-auto bg-white rounded-2xl border border-[#28321F]/10 shadow-card p-5 sm:p-8"
@@ -607,13 +619,20 @@ export function CheckoutClient({ payment }: { payment: PaymentSettings }) {
                   {completedOrder.shippingFee === 0 ? "Free" : `₹${completedOrder.shippingFee}`}
                 </p>
                 <p className="text-[#555C4A]">
-                  <strong>Payment:</strong>{" "}
-                  {completedOrder.paymentState === "cod"
-                    ? "Cash on Delivery (COD)"
-                    : completedOrder.paymentState === "processing"
-                    ? "Online (confirmation pending)"
-                    : "Paid online"}
+                  <strong>Payment:</strong> {paymentText(completedOrder.paymentState)}
                 </p>
+                {completedOrder.razorpayPaymentId && (
+                  <p className="text-[#555C4A]">
+                    <strong>Payment ID:</strong>{" "}
+                    <span className="select-all break-all font-mono">{completedOrder.razorpayPaymentId}</span>
+                  </p>
+                )}
+                {completedOrder.razorpayOrderId && (
+                  <p className="text-[#555C4A]">
+                    <strong>Razorpay Order ID:</strong>{" "}
+                    <span className="select-all break-all font-mono">{completedOrder.razorpayOrderId}</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -676,6 +695,13 @@ export function CheckoutClient({ payment }: { payment: PaymentSettings }) {
                 >
                   Print Receipt
                 </button>
+                {/* Orders are the first tab of the account page. */}
+                <Link
+                  href="/account"
+                  className="py-2.5 px-4 rounded-xl border border-[#263D18]/30 bg-[#EAF1DF] hover:bg-[#DCE8CC] text-[#263D18] text-xs sm:text-sm font-semibold inline-flex items-center transition-colors"
+                >
+                  My Orders
+                </Link>
                 <Link
                   href="/shop"
                   className="py-2.5 px-5 rounded-xl bg-[#263D18] hover:bg-[#1D3214] text-[#FBF7EE] text-xs sm:text-sm font-semibold inline-flex items-center transition-colors"
@@ -684,7 +710,25 @@ export function CheckoutClient({ payment }: { payment: PaymentSettings }) {
                 </Link>
               </div>
             </div>
+            {!currentUser && (
+              <p className="mt-3 text-xs text-[#777968] sm:text-right">
+                To see this order in My Orders, sign in or create an account with {completedOrder.email}.
+              </p>
+            )}
           </section>
+          <OrderReceipt
+            store={contact}
+            order={{
+              ...completedOrder,
+              paymentText: paymentText(completedOrder.paymentState),
+              addressLines: [
+                completedOrder.address,
+                `${completedOrder.city}, ${completedOrder.state} - ${completedOrder.pinCode}`,
+              ],
+              codFee: codFeeOf({ ...completedOrder, shipping: completedOrder.shippingFee }),
+            }}
+          />
+          </>
         ) : (
           /* ================================================================ */
           /* MAIN 2-COLUMN CHECKOUT FORM + ORDER SUMMARY                      */
