@@ -6,7 +6,8 @@ import { getAdminSession } from "@/lib/supabase/admin-auth";
 import type { ProductCreatePayload } from "@/lib/products/schema";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
-type ProductRelationPayload = Pick<ProductCreatePayload, "category_id" | "images">;
+// An update may leave either of these out; only what is sent is checked.
+type ProductRelationPayload = Partial<Pick<ProductCreatePayload, "category_id" | "images">>;
 
 export function validationMessage(issues: { path: PropertyKey[]; message: string }[]): string {
   return issues
